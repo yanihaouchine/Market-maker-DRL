@@ -24,6 +24,7 @@ int main() {
     assert(order.side == common::Side::BUY);
     assert(order.type == common::OrderType::LIMIT);
     assert(order.status == common::OrderStatus::NEW);
+    (void)order;  // Silence unused warning in Release builds
     std::cout << "✓ Order creation test passed\n";
 
     // Test 2: Side enum
@@ -41,6 +42,7 @@ int main() {
     auto nanos = common::to_nanos(now);
     auto reconstructed = common::from_nanos(nanos);
     assert(common::to_nanos(now) == common::to_nanos(reconstructed));
+    (void)reconstructed;  // Silence unused warning in Release builds
     std::cout << "✓ Timestamp functions test passed\n";
 
     std::cout << "All Types tests passed!\n";

@@ -27,10 +27,13 @@ int main() {
     // Test 3: Add ask order
     ob.add_order(common::Side::SELL, 10100, 50);
     assert(ob.ask_depth() == 1);
-    auto best_ask = ob.best_ask();
-    assert(best_ask.has_value());
-    assert(best_ask->price == 10100);
-    assert(best_ask->quantity == 50);
+    {
+        auto best_ask = ob.best_ask();
+        assert(best_ask.has_value());
+        assert(best_ask->price == 10100);
+        assert(best_ask->quantity == 50);
+        (void)best_ask;  // Silence unused warning in Release builds
+    }
     std::cout << "✓ Add ask order test passed\n";
 
     // Test 4: Multiple price levels
