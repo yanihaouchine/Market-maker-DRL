@@ -22,7 +22,6 @@ class Logger {
         min_level_ = level;
     }
 
-    template <typename... Args>
     void log(LogLevel level,
              std::string_view message,
              const std::source_location& location = std::source_location::current()) {

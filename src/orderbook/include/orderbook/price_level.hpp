@@ -20,8 +20,15 @@ struct PriceLevel {
     }
 
     void remove_quantity(common::Quantity q) {
-        quantity -= q;
-        --order_count;
+        if (q > quantity) {
+            quantity = 0;
+            order_count = 0;
+        } else {
+            quantity -= q;
+            if (order_count > 0) {
+                --order_count;
+            }
+        }
     }
 
     [[nodiscard]] bool is_empty() const {

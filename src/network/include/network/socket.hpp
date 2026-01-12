@@ -40,8 +40,6 @@ class Socket {
         return fd_ >= 0;
     }
 
-    void set_option(SocketOption option, int value);
-
   protected:
     SocketType type_;
     int fd_;

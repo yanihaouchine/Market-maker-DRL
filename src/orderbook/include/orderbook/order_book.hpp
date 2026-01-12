@@ -54,7 +54,8 @@ class OrderBook {
         if (bids_.empty()) {
             return std::nullopt;
         }
-        return bids_.begin()->second;  // begin() gives highest price (descending order)
+        // std::map with std::greater<> sorts in descending order, so begin() is highest
+        return bids_.begin()->second;
     }
 
     [[nodiscard]] std::optional<PriceLevel> best_ask() const {
