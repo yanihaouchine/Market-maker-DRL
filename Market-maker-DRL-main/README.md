@@ -142,3 +142,6 @@ clang-format -i src/**/*.cpp src/**/*.hpp
 ## License
 
 [Add your license here]
+
+g++ -std=c++20 tests/Connection_test.cpp -lboost_system -lssl -lcrypto -lpthread -o test_binance
+g++ -std=c++20 SendOrder.cpp -lboost_system -lssl -lcrypto -lpthread -o order 
