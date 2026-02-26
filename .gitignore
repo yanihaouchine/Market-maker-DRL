@@ -1,36 +1,68 @@
-# Build artifacts
-/build/
-CMakeFiles/
-CMakeCache.txt
-cmake_install.cmake
-Makefile
-CTestTestfile.cmake
-Testing/
-compile_commands.json
-
-# C/C++ artifacts
-*.o
-*.a
-*.so
-*.dll
-*.dylib
-*.exe
-*.out
-*.obj
-*.pdb
-*.lib
-*.dSYM/
-
-# Python artifacts
+# Python
 __pycache__/
-*.pyc
-*.pyo
-*.pyd
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+dist/
 
-# OS / editor
-.DS_Store
-Thumbs.db
+# Virtual environments
+venv/
+env/
+ENV/
+.venv
+
+# IDE
 .vscode/
 .idea/
+*.swp
+*.swo
 
-data/
+# Build files
+build/
+*.o
+*.a
+*.out
+*.cmake
+CMakeUserPresets.json
+cmake_install.cmake
+CTestTestfile.cmake
+Makefile
+bin/
+lib/
+
+# C++ specific
+*.dylib
+*.exe
+dist-newstyle
+
+# Config files with sensitive data
+agents/exchange/config.py
+
+# Environment variables
+.env
+.env.local
+
+# JSON data files
+data/*.json
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Dependencies
+_deps/
+
+# Logs
+*.log
+
+# OS files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db

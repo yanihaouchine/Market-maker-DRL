@@ -1,162 +1,176 @@
-# Order Book Engine
+# Trading System - Order Book + Live Market Agent
 
-Moteur de carnet d'ordres haute performance en C++20 avec intégration données de marché temps réel.
+Système complet de trading avec **Order Book en C++** + **Agent de trading en Python** connecté à **Binance Testnet**.
 
-## Features
+## 🎯 Architecture
 
-- **Types d'ordres** : GoodTillCancel, Market, ImmediateOrCancel, FillOrKill, GoodForDay
-- **Algorithme de matching** : Priorité prix-temps (FIFO au sein d'un niveau de prix)
-- **Structures de données** : O(1) recherche, O(log n) accès aux niveaux
-- **Live market data** : Intégration Binance API
-
-## Performance
-
-- Insertion : ~400K ops/sec
-- Annulation : ~2M ops/sec
-- Modification : ~270K ops/sec
-- Latence : 2-4 μs
-
-## Installation
-
-### Prérequis
-
-- CMake 3.10+
-- C++20 compiler (GCC 10+, Clang 10+, MSVC 2019+)
-- Dépendances : libcurl 8.4.0, nlohmann/json 3.11.3 (téléchargées automatiquement)
-
-### Compilation
-
-**Première fois (configuration initiale)** :
-```bash
-mkdir build && cd build
-cmake ..
-cmake --build . --config Release -j$(nproc)
+```
+┌──────────────────┐
+│ Binance Testnet  │ ← Source unique des données
+│   (Public API)   │
+└────────┬─────────┘
+         │
+         ├─────────▶ Programme C++ (crée l'orderbook)
+         │           └─▶ market_state.json
+         │
+         └─────────▶ Agent Python (lit market_state.json)
+                    └─▶ Exécute les ordres directement
 ```
 
-**Après modification du code** :
-```bash
-# Méthode simple (recommandé)
-./build.sh
+## � Structure du Projet
 
-# Ou manuellement
-cd build
-cmake --build . --config Release -j$(nproc)
+```
+live/
+├── agents/                          # Agent de trading Python
+│   ├── __init__.py
+│   ├── agent.py                    # Boucle principale de l'agent
+│   ├── display.py                  # Affichage des données
+│   ├── main.py                     # Entrée de l'application
+│   ├── market_data.py              # Gestion des données de marché
+│   ├── trading_types.py            # Types de données
+│   ├── exchange/                   # Client Binance
+│   │   ├── __init__.py
+│   │   ├── binance_client.py       # Intégration Binance
+│   │   ├── config.example.py       # Template de configuration
+│   │   └── config.py               # Configuration (ignorée par Git)
+│   ├── strategies/                 # Stratégies de trading
+│   │   ├── __init__.py
+│   │   ├── bollinger_bands.py
+│   │   ├── mean_reversion.py
+│   │   └── rsi.py
+│   └── tests/                      # Tests unitaires Python
+│       ├── __init__.py
+│       ├── test_binance_order.py
+│       └── test_system.py
+├── include/                        # Headers C++
+│   ├── Core/
+│   │   ├── Constants.h
+│   │   ├── OrderType.h
+│   │   └── Types.h
+│   ├── LiveMarketData/
+│   │   ├── Display.h
+│   │   ├── Fetcher.h
+│   │   └── Parser.h
+│   ├── MarketData/
+│   │   └── MarketDataFeed.h
+│   └── OrderBook/
+│       ├── ExchangeRules.h
+│       ├── LevelInfo.h
+│       ├── Order.h
+│       ├── OrderBook.h
+│       ├── OrderModify.h
+│       └── Trade.h
+├── src/                            # Implémentations C++
+│   ├── LiveMarketData/
+│   │   ├── Display.cpp
+│   │   ├── Fetcher.cpp
+│   │   ├── Main.cpp
+│   │   └── Parser.cpp
+│   └── OrderBook/
+│       ├── Order.cpp
+│       ├── OrderBook.cpp
+│       ├── OrderModify.cpp
+│       └── Trade.cpp
+├── tests/                          # Tests C++
+│   └── tests.cpp
+├── data/                           # Données de marché (ignorées par Git)
+│   └── market_state.json
+├── build/                          # Dossier de compilation (ignoré par Git)
+├── CMakeLists.txt                  # Configuration CMake
+├── build.sh                        # Script de build
+├── run_agent.sh                    # Lancer l'agent Python
+├── run_market.sh                   # Lancer le fetcher C++
+├── integration_test.sh             # Test complet du système
+├── get_orders.sh                   # Récupérer les ordres
+├── .gitignore                      # Configuration Git
+└── README.md
 ```
 
-## Utilisation
+## �📊 3 Stratégies de Trading
 
-### Méthode Rapide (Scripts)
-
+### 1. **Mean Reversion** (défaut)
+- Achète quand prix < SMA - 1%
+- Vend quand prix > SMA + 1%
+- Basé sur 3 derniers prix
 ```bash
-# Terminal 1 - Market C++ (lance uniquement)
-./run_market.sh
-
-# Terminal 2 - Agent Python
 ./run_agent.sh
 ```
 
-### Méthode Manuelle
+### 2. **RSI (Relative Strength Index)**
+- Achète si RSI < 30 (survendu)
+- Vend si RSI > 70 (suracheté)
+- Basé sur 14 derniers prix
+```bash
+./run_agent.sh rsi
+```
+
+### 3. **Bollinger Bands**
+- Achète si prix touche bande inférieure
+- Vend si prix touche bande supérieure
+- Basé sur 20 derniers prix avec écart-type
+```bash
+./run_agent.sh bollinger
+```
+
+## 🚀 Configuration Initiale
+
+1. Obtenez vos clés API: https://testnet.binance.vision/
+2. Configurez:
+```bash
+cp agents/exchange/config.example.py agents/exchange/config.py
+# Éditez avec vos clés
+```
+
+## 💻 Compilation
 
 ```bash
-# Tests et benchmarks
+# Première fois
+mkdir build && cd build && cmake .. && make
+
+# Après modifications
+./build.sh
+```
+
+## ▶️ Lancer le Système
+
+### ⚠️ Important: Démarrer en 2 Terminaux
+
+**Terminal 1 - Données de marché (C++)**:
+```bash
+./run_market.sh [SYMBOL] [REFRESH_SECONDS] [DEPTH_LEVELS]
+# Exemples:
+./run_market.sh SOLUSDT 1 10
+./run_market.sh BTCUSDT 2 20
+```
+
+**Terminal 2 - Agent (Python)**:
+```bash
+./run_agent.sh                    # Mean Reversion (défaut)
+./run_agent.sh rsi       # RSI Strategy
+./run_agent.sh bollinger # Bollinger Bands
+```
+
+### Option 3: Test Complet (3 stratégies en parallèle)
+```bash
+bash integration_test.sh
+```
+
+## 🧪 Tests Unitaires
+
+```bash
+# Test système complet
+python3 -m agents.tests.test_system
+
+# Test individual
+python3 -m agents.tests.test_binance_order
+
+# Test OrderBook 
 ./build/OrderBookTests
-
-# Affichage temps réel
-./build/LiveMarketData SOLUSDT 1 20
-# [SYMBOL] [REFRESH_SECONDS] [DEPTH_LEVELS]
 ```
 
-## Trading Agent Python
+## 📚 Documentation Complète OrderBook
 
-Un agent de trading simple qui observe le marché et exécute des ordres selon une stratégie mean-reversion.
-
-### Exécution
-
-```bash
-python3 -m agents.main
-# ou
-python3 agents/main.py
-```
-
-**Fichiers utilisés** :
-- data/market_state.json (lecture)
-- data/agent_orders.json (écriture)
-
-### Stratégie
-
-L'agent implémente une stratégie **Mean Reversion** :
-- **ACHETER** quand le prix est 2% sous la moyenne mobile (SMA)
-- **VENDRE** quand le prix est 2% au-dessus de la SMA
-- **ATTENDRE** sinon
-
-### Fonctionnalités
-
-- 📊 Observation en temps réel de l'orderbook Binance
-- 🎯 Analyse technique (SMA, déviation de prix)
-- 📝 Gestion des ordres et positions
-- 💰 Suivi P&L non réalisé
-- 📈 Affichage détaillé du marché et des performances
-
-### Exemple de sortie
-
-```
-================================================================================
- MARKET STATE                         SOLUSDT        13:45:23
-================================================================================
-Bid:    $103.25  |  Ask: $103.27  |  Mid: $103.26
-Spread:   1.94 bps  |  SMA:    $103.15
-
-Orderbook Bids:
-    $103.25  x  1234.56
-    $103.24  x   891.23
-    $103.23  x  2145.67
-
-Orderbook Asks:
-    $103.27  x  1567.89
-    $103.28  x   723.45
-    $103.29  x  1234.56
-
-================================================================================
- Decision: BUY
-   Reason: Price -2.1% below SMA (-2.15%)
-
-✅ Order #1 placed: BUY 5.0 @ $103.25
-
-================================================================================
- POSITION
-================================================================================
-  Qty:      5.00 | Entry: $ 103.25 | Current: $ 103.26 | PnL: $   0.05
-```
-
-## Structure
-
-```
-orderbook-simulator-cpp/
-├── agents/               # Agents Python (structure modulaire)
-│   ├── __init__.py
-│   ├── main.py          # Point d'entrée
-│   ├── agent.py         # Orchestrateur TradingAgent
-│   ├── strategy.py      # Stratégie de trading
-│   ├── market_data.py   # Gestion données marché
-│   ├── display.py       # Fonctions d'affichage
-│   └── types.py         # Types et enums
-├── data/                 # Fichiers JSON échangés
-│   ├── agent_orders.json
-│   └── market_state.json
-├── include/              # En-têtes
-│   ├── Core/
-│   ├── OrderBook/
-│   ├── MarketData/
-│   └── LiveMarketData/
-├── src/                  # Implémentations
-│   ├── OrderBook/
-│   └── LiveMarketData/
-├── tests/                # Tests
-│   └── tests.cpp
-└── CMakeLists.txt
-```
-
-### Matching Logic
+### 🔄 Matching Logic
 
 Orders match when:
 
@@ -169,8 +183,7 @@ Matching proceeds in price-time priority:
 2. Within a price level, earliest orders matched first (FIFO)
 3. Partial fills supported for all order types except FillOrKill
 
-#
-## Performance Characteristics
+### ⚡ Performance Characteristics
 
 | Operation      | Complexity | Measured Throughput |
 |----------------|------------|---------------------|
@@ -185,9 +198,9 @@ Matching proceeds in price-time priority:
 Benchmarks run on typical development hardware. Actual performance depends on system configuration and workload
 characteristics.
 
-## Implementation Notes
+## 🏗️ Implementation Notes
 
-### Design Decisions
+### 💡 Design Decisions
 
 **Why separate bids/asks maps?** Allows different sorting orders (descending for bids, ascending for asks) and
 simplifies best bid/ask access.
@@ -200,11 +213,12 @@ copying. Trade-off between memory overhead and simplicity.
 **Market order conversion:** Market orders are converted to limit orders at extreme prices (max/min) to reuse the
 matching logic.
 
-### Order Type Behavior
+### 📋 Order Type Behavior
 
 - **GoodTillCancel**: Remains active until filled or cancelled
 - **Market**: Immediately converted to aggressive limit order
 - **ImmediateOrCancel**: Partial fills accepted, unfilled portion cancelled
 - **FillOrKill**: All-or-nothing execution, rejected if can't fill completely
 - **GoodForDay**: Cancelled at configured time (default 15:59)
+
 

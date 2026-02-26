@@ -78,7 +78,6 @@ add_executable(LiveMarketData
         src/LiveMarketData/Main.cpp
         src/LiveMarketData/Fetcher.cpp
         src/LiveMarketData/Parser.cpp
-        src/LiveMarketData/AgentOrders.cpp
         src/LiveMarketData/Display.cpp
         ${SOURCES}
 )

@@ -17,7 +17,8 @@ std::string FetchBinanceOrderbook(const std::string &symbol, int limit) {
 
     curl = curl_easy_init();
     if (curl) {
-        std::string url = "https://api.binance.com/api/v3/depth?symbol=" + symbol +
+        // Utiliser le testnet Binance pour la cohérence avec l'exécution des ordres
+        std::string url = "https://testnet.binance.vision/api/v3/depth?symbol=" + symbol +
                           "&limit=" + std::to_string(limit);
 
         curl_easy_setopt(curl, CURLOPT_URL, url.c_str());

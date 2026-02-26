@@ -9,7 +9,6 @@
 #include <nlohmann/json.hpp>
 #include <sstream>
 #include <string>
-#include "LiveMarketData/AgentOrders.h"
 
 using json = nlohmann::json;
 
@@ -34,12 +33,9 @@ void PrintOrderbook(const Orderbook &orderbook, const std::string &symbol, int l
 
     auto now = std::chrono::system_clock::now();
 
-    int activeAgentOrders = CountActiveAgentOrders();
-
     std::cout << "========================================\n";
     std::cout << "  LIVE ORDERBOOK: " << symbol << "\n";
     std::cout << "  " << FormatTimestamp(now) << "\n";
-    std::cout << "  🤖 Ordres Agent Actifs: " << activeAgentOrders << "\n";
     std::cout << "========================================\n\n";
 
     std::cout << std::setw(15) << "BID QTY" << " | "
@@ -99,33 +95,20 @@ void PrintOrderbook(const Orderbook &orderbook, const std::string &symbol, int l
     std::cout << "Average Latency: " << std::fixed << std::setprecision(3)
               << stats.GetAverageLatencyMicros() << " μs\n";
 
-    // Afficher les ordres de l'agent
-    const auto &agentOrders = GetPersistentAgentOrders();
-    if (!agentOrders.empty()) {
-        std::cout << "\n--- ORDRES DE L'AGENT ---\n";
-        for (const auto &order : agentOrders) {
-            if (!order.isActive) {
-                continue;
-            }
-            std::string side_str = (order.side == Side::Buy) ? "BUY" : "SELL";
-            std::cout << "  🤖 " << side_str << " "
-                      << std::fixed << std::setprecision(2) << (order.quantity / 100.0)
-                      << " @ $" << (order.price / 100.0)
-                      << " [ID: " << order.orderId << "]\n";
-        }
-    }
-
     std::cout << "========================================\n";
     std::cout << "\nPress Ctrl+C to exit...\n";
 }
 
-void WriteMarketStateJson(const Orderbook &orderbook, const std::string &filename, int iteration) {
+void WriteMarketStateJson(const Orderbook &orderbook, const std::string &filename, int iteration, const std::string &symbol) {
     try {
         auto infos = orderbook.GetOrderInfos();
         const auto &bids = infos.GetBids();
         const auto &asks = infos.GetAsks();
 
         json state;
+        
+        // Add symbol
+        state["symbol"] = symbol;
         
         // Get best prices
         if (!bids.empty() && !asks.empty()) {
