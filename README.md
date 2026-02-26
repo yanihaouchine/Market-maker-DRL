@@ -17,10 +17,10 @@ Système complet de trading avec **Order Book en C++** + **Agent de trading en P
                     └─▶ Exécute les ordres directement
 ```
 
-## � Structure du Projet
+## 🗂️ Structure du Projet
 
 ```
-live/
+.
 ├── agents/                          # Agent de trading Python
 │   ├── __init__.py
 │   ├── agent.py                    # Boucle principale de l'agent
@@ -86,7 +86,7 @@ live/
 └── README.md
 ```
 
-## �📊 3 Stratégies de Trading
+## 📊 3 Stratégies de Trading
 
 ### 1. **Mean Reversion** (défaut)
 - Achète quand prix < SMA - 1%
@@ -161,10 +161,10 @@ bash integration_test.sh
 # Test système complet
 python3 -m agents.tests.test_system
 
-# Test individual
+# Test individuel
 python3 -m agents.tests.test_binance_order
 
-# Test OrderBook 
+# Test OrderBook
 ./build/OrderBookTests
 ```
 
