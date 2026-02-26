@@ -17,10 +17,14 @@ class BinanceTestnetClient:
         self.api_key = api_key
         self.api_secret = api_secret
         self.base_url = "https://testnet.binance.vision"
+        self.recv_window = 10000
+        self.time_offset_ms = None
+        self.last_time_sync_ms = 0
         self.session = requests.Session()
         self.session.headers.update({
             'X-MBX-APIKEY': self.api_key
         })
+        self._sync_time()
         
     def _sign_request(self, params: Dict) -> str:
         """Generate signature for authenticated requests"""
@@ -31,23 +35,67 @@ class BinanceTestnetClient:
             hashlib.sha256
         ).hexdigest()
         return signature
+
+    def _sync_time(self) -> None:
+        """Sync local time with Binance server time"""
+        try:
+            response = self.session.get(f"{self.base_url}/api/v3/time", timeout=5)
+            response.raise_for_status()
+            server_time = response.json().get("serverTime")
+            if server_time is not None:
+                local_time = int(time.time() * 1000)
+                self.time_offset_ms = int(server_time) - local_time
+                self.last_time_sync_ms = local_time
+        except Exception:
+            pass
+
+    def _get_timestamp(self) -> int:
+        """Get a timestamp adjusted by server time offset"""
+        local_time = int(time.time() * 1000)
+        if self.time_offset_ms is None or (local_time - self.last_time_sync_ms) > 60_000:
+            self._sync_time()
+        offset = self.time_offset_ms or 0
+        return local_time + offset
+
+    def _signed_params(self, params: Dict) -> Dict:
+        """Attach timestamp, recvWindow, and signature"""
+        signed = dict(params)
+        signed.setdefault('recvWindow', self.recv_window)
+        signed['timestamp'] = self._get_timestamp()
+        signed['signature'] = self._sign_request(signed)
+        return signed
+
+    def _send_signed_request(self, method: str, endpoint: str, params: Dict) -> Optional[Dict]:
+        """Send a signed request with retry on timestamp error"""
+        signed = self._signed_params(params)
+        response = self.session.request(
+            method,
+            f"{self.base_url}{endpoint}",
+            params=signed,
+            timeout=10
+        )
+
+        if response.status_code == 400 and '"code":-1021' in response.text:
+            self._sync_time()
+            signed = self._signed_params(params)
+            response = self.session.request(
+                method,
+                f"{self.base_url}{endpoint}",
+                params=signed,
+                timeout=10
+            )
+
+        if response.status_code == 200:
+            return response.json()
+
+        print(f"❌ Order failed: {response.status_code} - {response.text}")
+        return None
     
     def get_account_info(self) -> Optional[Dict]:
         """Get account information"""
         try:
             endpoint = "/api/v3/account"
-            params = {
-                'timestamp': int(time.time() * 1000)
-            }
-            params['signature'] = self._sign_request(params)
-            
-            response = self.session.get(
-                f"{self.base_url}{endpoint}",
-                params=params,
-                timeout=10
-            )
-            response.raise_for_status()
-            return response.json()
+            return self._send_signed_request("GET", endpoint, {})
         except Exception as e:
             print(f"❌ Error getting account info: {e}")
             return None
@@ -84,22 +132,9 @@ class BinanceTestnetClient:
                 'side': side.value.upper(),
                 'type': order_type,
                 'quantity': f"{quantity:.8f}".rstrip('0').rstrip('.'),
-                'timestamp': int(time.time() * 1000)
             }
-            
-            params['signature'] = self._sign_request(params)
-            
-            response = self.session.post(
-                f"{self.base_url}{endpoint}",
-                params=params,
-                timeout=10
-            )
-            
-            if response.status_code == 200:
-                return response.json()
-            else:
-                print(f"❌ Order failed: {response.status_code} - {response.text}")
-                return None
+
+            return self._send_signed_request("POST", endpoint, params)
                 
         except Exception as e:
             print(f"❌ Error placing order: {e}")
@@ -128,22 +163,9 @@ class BinanceTestnetClient:
                 'timeInForce': 'GTC',  # Good Till Cancelled
                 'quantity': f"{quantity:.8f}".rstrip('0').rstrip('.'),
                 'price': f"{price:.8f}".rstrip('0').rstrip('.'),
-                'timestamp': int(time.time() * 1000)
             }
-            
-            params['signature'] = self._sign_request(params)
-            
-            response = self.session.post(
-                f"{self.base_url}{endpoint}",
-                params=params,
-                timeout=10
-            )
-            
-            if response.status_code == 200:
-                return response.json()
-            else:
-                print(f"❌ Limit order failed: {response.status_code} - {response.text}")
-                return None
+
+            return self._send_signed_request("POST", endpoint, params)
                 
         except Exception as e:
             print(f"❌ Error placing limit order: {e}")
@@ -156,17 +178,8 @@ class BinanceTestnetClient:
             params = {
                 'symbol': symbol,
                 'orderId': order_id,
-                'timestamp': int(time.time() * 1000)
             }
-            params['signature'] = self._sign_request(params)
-            
-            response = self.session.get(
-                f"{self.base_url}{endpoint}",
-                params=params,
-                timeout=10
-            )
-            response.raise_for_status()
-            return response.json()
+            return self._send_signed_request("GET", endpoint, params)
         except Exception as e:
             print(f"❌ Error getting order status: {e}")
             return None
@@ -178,17 +191,8 @@ class BinanceTestnetClient:
             params = {
                 'symbol': symbol,
                 'orderId': order_id,
-                'timestamp': int(time.time() * 1000)
             }
-            params['signature'] = self._sign_request(params)
-            
-            response = self.session.delete(
-                f"{self.base_url}{endpoint}",
-                params=params,
-                timeout=10
-            )
-            response.raise_for_status()
-            return response.json()
+            return self._send_signed_request("DELETE", endpoint, params)
         except Exception as e:
             print(f"❌ Error canceling order: {e}")
             return None
@@ -197,21 +201,11 @@ class BinanceTestnetClient:
         """Get all open orders"""
         try:
             endpoint = "/api/v3/openOrders"
-            params = {
-                'timestamp': int(time.time() * 1000)
-            }
+            params = {}
             if symbol:
                 params['symbol'] = symbol
-                
-            params['signature'] = self._sign_request(params)
-            
-            response = self.session.get(
-                f"{self.base_url}{endpoint}",
-                params=params,
-                timeout=10
-            )
-            response.raise_for_status()
-            return response.json()
+
+            return self._send_signed_request("GET", endpoint, params)
         except Exception as e:
             print(f"❌ Error getting open orders: {e}")
             return None
