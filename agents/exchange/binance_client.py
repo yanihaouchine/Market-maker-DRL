@@ -66,7 +66,7 @@ class BinanceTestnetClient:
         return signed
 
     def _send_signed_request(self, method: str, endpoint: str, params: Dict) -> Optional[Dict]:
-        """Send a signed request with retry on timestamp error"""
+        """Send a signed request - fail fast for fresh decision on retry"""
         signed = self._signed_params(params)
         response = self.session.request(
             method,
@@ -74,16 +74,6 @@ class BinanceTestnetClient:
             params=signed,
             timeout=10
         )
-
-        if response.status_code == 400 and '"code":-1021' in response.text:
-            self._sync_time()
-            signed = self._signed_params(params)
-            response = self.session.request(
-                method,
-                f"{self.base_url}{endpoint}",
-                params=signed,
-                timeout=10
-            )
 
         if response.status_code == 200:
             return response.json()

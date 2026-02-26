@@ -58,6 +58,10 @@ _deps/
 # Logs
 *.log
 
+# Markdown files
+*.md
+!README.md
+
 # OS files
 .DS_Store
 .DS_Store?

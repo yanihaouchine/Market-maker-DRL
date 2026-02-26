@@ -143,10 +143,16 @@ class TradingAgent:
                 self.last_order_id = order_response.get('orderId')
                 print(f"✅ Order executed! Order ID: {self.last_order_id}")
                 
-                # Update balance
-                balance = self.binance.get_balance("USDT")
-                if balance is not None:
-                    self.cash = balance
+                # Update balance and inventory from Binance
+                cash_balance = self.binance.get_balance("USDT")
+                if cash_balance is not None:
+                    self.cash = cash_balance
+                
+                # Update inventory from actual Binance balance
+                asset = self._extract_base_asset(self.symbol)
+                inventory_balance = self.binance.get_balance(asset)
+                if inventory_balance is not None:
+                    self.inventory = inventory_balance
                 
                 return order_response
             else:
@@ -156,32 +162,6 @@ class TradingAgent:
         except Exception as e:
             print(f"❌ Error executing order: {e}")
             return None
-    
-    def update_inventory(self, order_response: Dict, decision: Dict):
-        """Update inventory tracking based on actual order execution
-        
-        Args:
-            order_response: Response from Binance with execution details
-            decision: Original trading decision
-        """
-        if not order_response:
-            return
-        
-        try:
-            # Get executed quantity from order response
-            executed_qty = float(order_response.get('executedQty', 0))
-            
-            if decision["side"] == Side.BUY:
-                # Add to inventory
-                self.inventory += executed_qty
-            elif decision["side"] == Side.SELL:
-                # Reduce inventory
-                self.inventory -= executed_qty
-                if self.inventory < 0:
-                    self.inventory = 0.0
-                    
-        except Exception as e:
-            print(f"❌ Error updating inventory: {e}")
     
     def run(self, duration_seconds: int = 60):
         """Run agent connected to C++ LiveMarketData and execute on Binance testnet"""
@@ -226,12 +206,11 @@ class TradingAgent:
                     total_qty = sum(float(fill['qty']) for fill in fills)
                     exec_price = total_cost / total_qty if total_qty > 0 else None
                 
-                print_execution(order_placed, decision, self.total_trades, self.cash, exec_price, self.inventory)
-                
-                # Update inventory based on actual execution
+                # Count trades
                 if order_placed:
-                    self.update_inventory(order_response, decision)
                     self.total_trades += 1
+
+                print_execution(order_placed, decision, self.total_trades, self.cash, exec_price, self.inventory)
                 
                 # Wait before next iteration
                 time.sleep(2)  # Longer wait for real trading
