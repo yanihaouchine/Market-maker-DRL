@@ -63,7 +63,7 @@ int main(int argc, char *argv[]) {
 
                 if (orderbook.ProcessMarketData(snapshot)) {
                     // Écrire l'état du marché pour l'agent Python
-                    WriteMarketStateJson(orderbook, "../data/market_state.json", iteration, symbol);
+                    WriteMarketStateJson(orderbook, "../../data/market_state.json", iteration, symbol);
 
                     // Display the orderbook
                     PrintOrderbook(orderbook, symbol, displayLevels);
