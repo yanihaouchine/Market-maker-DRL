@@ -146,8 +146,22 @@ void WriteMarketStateJson(const Orderbook &orderbook, const std::string &filenam
         }
         state["asks"] = asks_arr;
 
+        // Create directory if it doesn't exist
+        size_t lastSlash = filename.find_last_of("/\\");
+        if (lastSlash != std::string::npos) {
+            std::string dir = filename.substr(0, lastSlash);
+            #ifdef _WIN32
+                system(("mkdir " + dir).c_str());
+            #else
+                system(("mkdir -p " + dir).c_str());
+            #endif
+        }
+
         // Write to file
         std::ofstream file(filename);
+        if (!file.is_open()) {
+            throw std::runtime_error("Cannot open file for writing: " + filename);
+        }
         file << state.dump(2);
         file.close();
     } catch (const std::exception &e) {
