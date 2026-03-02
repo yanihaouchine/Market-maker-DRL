@@ -84,13 +84,13 @@ class BollingerBandsStrategy:
         if current_price <= lower:  # Price at or below lower band
             result["action"] = "BUY"
             result["side"] = Side.BUY
-            result["price"] = int(self.market_data.bid_price * 100)
+            result["price"] = self.market_data.bid_price
             result["reason"] = f"Price ${current_price:.2f} hit lower band ${lower:.2f}"
             
         elif current_price >= upper:  # Price at or above upper band
             result["action"] = "SELL"
             result["side"] = Side.SELL
-            result["price"] = int(self.market_data.ask_price * 100)
+            result["price"] = self.market_data.ask_price
             result["reason"] = f"Price ${current_price:.2f} hit upper band ${upper:.2f}"
         
         else:

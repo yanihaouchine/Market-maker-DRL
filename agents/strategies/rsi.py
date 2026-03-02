@@ -28,8 +28,8 @@ class RSIStrategy:
         prices_list = list(self.prices)
         deltas = [prices_list[i] - prices_list[i-1] for i in range(1, len(prices_list))]
         
-        gains = sum(d for d in deltas if d > 0) / self.period
-        losses = sum(-d for d in deltas if d < 0) / self.period
+        gains = sum(d for d in deltas if d > 0) / len(deltas)
+        losses = sum(-d for d in deltas if d < 0) / len(deltas)
         
         if losses == 0:
             return 100.0 if gains > 0 else 0.0
@@ -70,13 +70,13 @@ class RSIStrategy:
         if rsi < 30:  # Oversold
             result["action"] = "BUY"
             result["side"] = Side.BUY
-            result["price"] = int(self.market_data.bid_price * 100)
+            result["price"] = self.market_data.bid_price
             result["reason"] = f"RSI oversold: {rsi:.1f} (< 30)"
             
         elif rsi > 70:  # Overbought
             result["action"] = "SELL"
             result["side"] = Side.SELL
-            result["price"] = int(self.market_data.ask_price * 100)
+            result["price"] = self.market_data.ask_price
             result["reason"] = f"RSI overbought: {rsi:.1f} (> 70)"
         
         else:

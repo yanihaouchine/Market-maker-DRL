@@ -35,7 +35,7 @@ class MeanReversionStrategy:
         if sma == 0:
             return None
         current_price = self.prices[-1]
-        return (current_price - sma) / sma * 100
+        return (current_price - sma) / sma
         
     def analyze(self, state_dict: Dict) -> Dict:
         """Analyze market and return decision"""
@@ -69,15 +69,15 @@ class MeanReversionStrategy:
         if deviation < -self.threshold:
             result["action"] = "BUY"
             result["side"] = Side.BUY
-            result["price"] = int(self.market_data.bid_price * 100)
-            result["reason"] = f"Price {deviation:.2f}% below SMA ({sma:.2f})"
+            result["price"] = self.market_data.bid_price
+            result["reason"] = f"Price {deviation*100:.2f}% below SMA ({sma:.2f})"
             
         elif deviation > self.threshold:
             result["action"] = "SELL"
             result["side"] = Side.SELL
-            result["price"] = int(self.market_data.ask_price * 100)
-            result["reason"] = f"Price {deviation:.2f}% above SMA ({sma:.2f})"
+            result["price"] = self.market_data.ask_price
+            result["reason"] = f"Price {deviation*100:.2f}% above SMA ({sma:.2f})"
         else:
-            result["reason"] = f"Deviation: {deviation:.2f}% (threshold: ±{self.threshold*100:.1f}%)"
+            result["reason"] = f"Deviation: {deviation*100:.2f}% (threshold: ±{self.threshold*100:.1f}%)"
         
         return result
