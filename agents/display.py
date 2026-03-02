@@ -39,12 +39,12 @@ def print_decision(decision: Dict):
         print(f"  Reason:    {reason}")
 
 
-def print_execution(order_placed: bool, decision: Dict, total_trades: int, cash: float = None, price: float = None, inventory: float = 0.0):
+def print_execution(order_placed: bool, decision: Dict, total_trades: int, cash: float = None, price: float = None, inventory: float = 0.0, quantity: float = None):
     """Print execution result - simple format"""
     if order_placed:
         action = decision['action']
-        quantity = decision.get('quantity', 0)
-        unit_price = price if price else decision.get('price', 0) / 100.0
+        quantity = quantity if quantity is not None else decision.get('quantity', 0)
+        unit_price = price if price else decision.get('price', 0)
         total_cost = quantity * unit_price
         
         if action == 'BUY':

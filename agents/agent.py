@@ -123,7 +123,7 @@ class TradingAgent:
                     balance = self.binance.get_balance("USDT")
                     if balance is not None:
                         self.cash = balance
-                est_price = decision.get("price", 0) / 100.0
+                est_price = decision.get("price", 0)
                 est_cost = quantity * est_price if est_price > 0 else 0
                 if self.cash is not None and est_cost > 0 and self.cash < est_cost:
                     print(f"❌ Cannot BUY: Insufficient USDT (need {est_cost:.2f}, have {self.cash:.2f})")
@@ -198,19 +198,21 @@ class TradingAgent:
                 order_response = self.execute_order(decision)
                 order_placed = order_response is not None
                 
-                # Get actual execution price if available
+                # Get actual execution price and quantity if available
                 exec_price = None
+                exec_quantity = None
                 if order_placed and order_response.get('fills'):
                     fills = order_response.get('fills', [])
                     total_cost = sum(float(fill['price']) * float(fill['qty']) for fill in fills)
                     total_qty = sum(float(fill['qty']) for fill in fills)
                     exec_price = total_cost / total_qty if total_qty > 0 else None
+                    exec_quantity = total_qty if total_qty > 0 else None
                 
                 # Count trades
                 if order_placed:
                     self.total_trades += 1
 
-                print_execution(order_placed, decision, self.total_trades, self.cash, exec_price, self.inventory)
+                print_execution(order_placed, decision, self.total_trades, self.cash, exec_price, self.inventory, exec_quantity)
                 
                 # Wait before next iteration
                 time.sleep(2)  # Longer wait for real trading
