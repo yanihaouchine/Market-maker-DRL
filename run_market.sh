@@ -1,7 +1,7 @@
 #!/bin/bash
 # Script pour lancer le LiveMarketData C++
 
-PROJECT_ROOT="$(dirname "$0")"
+PROJECT_ROOT="$(cd "$(dirname "$0")" && pwd)"
 
 # Afficher l'aide si demandé
 if [ "$1" = "-h" ] || [ "$1" = "--help" ]; then
@@ -39,5 +39,5 @@ echo "⏱️  Fréquence: ${UPDATE_FREQ}s"
 echo "📈 Profondeur: $DEPTH"
 echo ""
 
-cd "$PROJECT_ROOT/build" || exit 1
-./LiveMarketData "$SYMBOL" "$UPDATE_FREQ" "$DEPTH"
+cd "$PROJECT_ROOT" || exit 1
+./build/LiveMarketData "$SYMBOL" "$UPDATE_FREQ" "$DEPTH"

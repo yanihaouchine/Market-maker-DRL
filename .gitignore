@@ -46,6 +46,8 @@ agents/exchange/config.py
 
 # JSON data files
 data/*.json
+**/data/market_state.json
+build/data/
 
 # Testing
 .pytest_cache/

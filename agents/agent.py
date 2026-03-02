@@ -16,7 +16,7 @@ class TradingAgent:
     """Advanced trading agent that executes orders directly on Binance testnet"""
     
     def __init__(self, symbol: str = None, strategy_class=None, api_key: str = None, api_secret: str = None):
-        # Files - define this first
+        # Files - fixed path from project root
         self.state_file = "data/market_state.json"
         
         # If no symbol provided, try to get it from market_state.json

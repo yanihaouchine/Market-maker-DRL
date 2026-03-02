@@ -41,6 +41,11 @@ int main(int argc, char *argv[]) {
 
     std::this_thread::sleep_for(std::chrono::seconds(2));
 
+    // Always write to project-root data file
+    const std::string marketStatePath = "data/market_state.json";
+
+    std::cout << "Market state output: " << marketStatePath << "\n\n";
+
     Orderbook orderbook;
 
     try {
@@ -63,7 +68,7 @@ int main(int argc, char *argv[]) {
 
                 if (orderbook.ProcessMarketData(snapshot)) {
                     // Écrire l'état du marché pour l'agent Python
-                    WriteMarketStateJson(orderbook, "../../data/market_state.json", iteration, symbol);
+                    WriteMarketStateJson(orderbook, marketStatePath, iteration, symbol);
 
                     // Display the orderbook
                     PrintOrderbook(orderbook, symbol, displayLevels);
