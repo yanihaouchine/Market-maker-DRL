@@ -19,10 +19,10 @@ class MarketData:
         
     def update(self, state_dict: Dict):
         """Update market state from C++"""
-        self.bid_price = state_dict.get("bid_price", 0) / 100.0
-        self.ask_price = state_dict.get("ask_price", 0) / 100.0
-        self.mid_price = state_dict.get("mid_price", 0) / 100.0
-        self.spread = state_dict.get("spread", 0) / 100.0
+        self.bid_price = state_dict.get("bid_price", 0)
+        self.ask_price = state_dict.get("ask_price", 0)
+        self.mid_price = state_dict.get("mid_price", 0)
+        self.spread = state_dict.get("spread", 0)
         self.bids = state_dict.get("bids", [])
         self.asks = state_dict.get("asks", [])
         self.last_price = self.mid_price

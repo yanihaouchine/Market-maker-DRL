@@ -112,15 +112,15 @@ void WriteMarketStateJson(const Orderbook &orderbook, const std::string &filenam
         
         // Get best prices
         if (!bids.empty() && !asks.empty()) {
-            state["bid_price"] = bids[0].price_;
-            state["ask_price"] = asks[0].price_;
+            state["bid_price"] = bids[0].price_ / 100.0;
+            state["ask_price"] = asks[0].price_ / 100.0;
             
             double spread = (asks[0].price_ - bids[0].price_) / 100.0;
             double midPrice = (bids[0].price_ + asks[0].price_) / 200.0;
             double spreadBps = (spread / midPrice) * 10000;
             
-            state["mid_price"] = (bids[0].price_ + asks[0].price_) / 2.0;
-            state["spread"] = asks[0].price_ - bids[0].price_;
+            state["mid_price"] = midPrice;
+            state["spread"] = spread;
             state["spread_bps"] = spreadBps;
         }
 
@@ -130,8 +130,8 @@ void WriteMarketStateJson(const Orderbook &orderbook, const std::string &filenam
         json bids_arr = json::array();
         for (const auto &bid : bids) {
             bids_arr.push_back({
-                {"price", bid.price_},
-                {"quantity", bid.quantity_}
+                {"price", bid.price_ / 100.0},
+                {"quantity", bid.quantity_ / 100.0}
             });
         }
         state["bids"] = bids_arr;
@@ -140,8 +140,8 @@ void WriteMarketStateJson(const Orderbook &orderbook, const std::string &filenam
         json asks_arr = json::array();
         for (const auto &ask : asks) {
             asks_arr.push_back({
-                {"price", ask.price_},
-                {"quantity", ask.quantity_}
+                {"price", ask.price_ / 100.0},
+                {"quantity", ask.quantity_ / 100.0}
             });
         }
         state["asks"] = asks_arr;
