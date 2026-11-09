@@ -17,7 +17,7 @@ if [[ "$1" == "--restart" ]]; then
 fi
 
 if lsof -iTCP:8090 -sTCP:LISTEN >/dev/null 2>&1; then
-	echo "ℹDashboard is already running on port 8090"
+	echo "Dashboard is already running on port 8090"
 	echo "Open: http://127.0.0.1:8090"
 	echo "Use './run_dashboard.sh --restart' to kill it and relaunch."
 	exit 0

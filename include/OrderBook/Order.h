@@ -1,11 +1,9 @@
 #pragma once
 
-#include "Core/Constants.h"
 #include "Core/OrderType.h"
 #include "Core/Types.h"
 
 class Order {
-    // represents one individual order
 public:
     Order(OrderType orderType, OrderId orderId, Side side, Price price, Quantity quantity);
     Order(OrderId orderId, Side side, Quantity quantity);

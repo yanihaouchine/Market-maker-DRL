@@ -1,21 +1,21 @@
 #pragma once
 
+#include <cstdint>
 #include <variant>
+#include <vector>
 #include <string>
 #include <chrono>
 #include "Core/OrderType.h"
 #include "Core/Types.h"
 
-// Enum representing different types of market data messages
 enum class MessageType {
-    NewOrder, // New order added to book
-    CancelOrder, // Order cancelled
+    NewOrder,
+    CancelOrder,
     ModifyOrder, // Order modified (price/quantity)
-    Trade, // Trade executed
-    BookSnapshot // Full book snapshot
+    Trade,
+    BookSnapshot
 };
 
-// Market data message for a new order
 struct NewOrderMessage {
     MessageType type = MessageType::NewOrder;
     OrderId orderId;
@@ -26,14 +26,12 @@ struct NewOrderMessage {
     std::chrono::system_clock::time_point timestamp;
 };
 
-// Market data message for order cancellation
 struct CancelOrderMessage {
     MessageType type = MessageType::CancelOrder;
     OrderId orderId;
     std::chrono::system_clock::time_point timestamp;
 };
 
-// Market data message for order modification
 struct ModifyOrderMessage {
     MessageType type = MessageType::ModifyOrder;
     OrderId orderId;
@@ -43,7 +41,6 @@ struct ModifyOrderMessage {
     std::chrono::system_clock::time_point timestamp;
 };
 
-// Market data message for a trade execution
 struct TradeMessage {
     MessageType type = MessageType::Trade;
     OrderId buyOrderId;
@@ -53,14 +50,12 @@ struct TradeMessage {
     std::chrono::system_clock::time_point timestamp;
 };
 
-// Level data for book snapshot
 struct SnapshotLevel {
     Price price;
     Quantity quantity;
     int orderCount; // Number of orders at this level
 };
 
-// Market data message for full book snapshot
 struct BookSnapshotMessage {
     MessageType type = MessageType::BookSnapshot;
     std::vector<SnapshotLevel> bids;

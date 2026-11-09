@@ -1,7 +1,6 @@
 #include "LiveMarketData/Display.h"
 
 #include <algorithm>
-#include <chrono>
 #include <ctime>
 #include <fstream>
 #include <iomanip>
@@ -70,7 +69,6 @@ void PrintOrderbook(const Orderbook &orderbook, const std::string &symbol, int l
     const auto &bids = infos.GetBids();
     const auto &asks = infos.GetAsks();
 
-    // Clear screen
 #ifdef _WIN32
     system("cls");
 #else
@@ -94,7 +92,6 @@ void PrintOrderbook(const Orderbook &orderbook, const std::string &symbol, int l
                              std::min((int) asks.size(), levels));
 
     for (int i = 0; i < maxLevels; ++i) {
-        // Print bid
         if (i < bids.size()) {
             std::cout << std::setw(15) << std::fixed << std::setprecision(2)
                       << bids[i].quantity_ / 100.0 << " | "
@@ -105,7 +102,6 @@ void PrintOrderbook(const Orderbook &orderbook, const std::string &symbol, int l
                       << std::setw(12) << "-" << " | ";
         }
 
-        // Print ask
         if (i < asks.size()) {
             std::cout << std::setw(12) << std::fixed << std::setprecision(2)
                       << asks[i].price_ / 100.0 << " | "
@@ -119,7 +115,6 @@ void PrintOrderbook(const Orderbook &orderbook, const std::string &symbol, int l
 
     std::cout << "========================================\n";
 
-    // Calculate and display spread
     if (!bids.empty() && !asks.empty()) {
         double spread = (asks[0].price_ - bids[0].price_) / 100.0;
         double midPrice = (bids[0].price_ + asks[0].price_) / 200.0;
@@ -135,7 +130,6 @@ void PrintOrderbook(const Orderbook &orderbook, const std::string &symbol, int l
 
     std::cout << "\nOrderbook Size: " << orderbook.Size() << " orders\n";
 
-    // Display market data stats
     const auto &stats = orderbook.GetMarketDataStats();
     std::cout << "Messages Processed: " << stats.messagesProcessed << "\n";
     std::cout << "Average Latency: " << std::fixed << std::setprecision(3)
@@ -153,10 +147,8 @@ void WriteMarketStateJson(const Orderbook &orderbook, const std::string &filenam
 
         json state;
         
-        // Add symbol
         state["symbol"] = symbol;
         
-        // Get best prices
         if (!bids.empty() && !asks.empty()) {
             state["bid_price"] = bids[0].price_;
             state["ask_price"] = asks[0].price_;
@@ -172,7 +164,6 @@ void WriteMarketStateJson(const Orderbook &orderbook, const std::string &filenam
 
         state["iteration"] = iteration;
 
-        // Add all bid levels
         json bids_arr = json::array();
         for (const auto &bid : bids) {
             bids_arr.push_back({
@@ -182,7 +173,6 @@ void WriteMarketStateJson(const Orderbook &orderbook, const std::string &filenam
         }
         state["bids"] = bids_arr;
 
-        // Add all ask levels
         json asks_arr = json::array();
         for (const auto &ask : asks) {
             asks_arr.push_back({
@@ -192,10 +182,8 @@ void WriteMarketStateJson(const Orderbook &orderbook, const std::string &filenam
         }
         state["asks"] = asks_arr;
 
-        // Create directory if it doesn't exist
         EnsureDirectoryExistsForFile(filename);
 
-        // Write to file
         std::ofstream file(filename);
         if (!file.is_open()) {
             throw std::runtime_error("Cannot open file for writing: " + filename);

@@ -1,10 +1,8 @@
 #!/bin/bash
 # Script pour lancer l'agent Python avec une stratégie au choix
 
-echo "🤖 Démarrage de l'agent Python..."
 cd "$(dirname "$0")"
 
-# Vérifier que Python3 est installé
 if ! command -v python3 &> /dev/null; then
     echo "Python3 n'est pas installé!"
     exit 1
@@ -12,18 +10,19 @@ fi
 
 echo "Python trouvé: $(python3 --version)"
 
-# Stratégie par défaut
 STRATEGY="${1:-mean_reversion}"
 
-# Afficher l'aide si demandé
 if [ "$1" = "-h" ] || [ "$1" = "--help" ]; then
     echo ""
     echo "Usage: ./run_agent.sh [STRATEGY]"
     echo ""
     echo "Stratégies disponibles:"
-    echo "  mean_reversion  - Mean Reversion Strategy (par défaut)"
-    echo "  rsi             - RSI Strategy"
-    echo "  bollinger       - Bollinger Bands Strategy"
+    echo "  mean_reversion  - Mean Reversion (par défaut)"
+    echo "  rsi             - RSI"
+    echo "  bollinger       - Bandes de Bollinger"
+    echo "  sma             - Moyenne mobile simple"
+    echo "  random          - Aléatoire (référence)"
+    echo "  a2c | dqn | ppo | sac - Agents RL (modèles dans models/)"
     echo ""
     echo "Exemples:"
     echo "  ./run_agent.sh              # Lance Mean Reversion"

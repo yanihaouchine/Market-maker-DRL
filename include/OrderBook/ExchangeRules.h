@@ -2,7 +2,6 @@
 
 #include "Core/Types.h"
 
-// Exchange trading rules
 struct ExchangeRules {
     Price tickSize = 1; // Minimum price increment (in cents)
     Quantity lotSize = 1; // Minimum quantity increment (e.g., 1 share)
@@ -24,12 +23,10 @@ struct ExchangeRules {
 
     // Validate if order value meets minimum notional
     bool IsValidNotional(Price price, Quantity quantity) const {
-        // Calculate notional value (price * quantity)
         int64_t notional = static_cast<int64_t>(price) * static_cast<int64_t>(quantity);
         return notional >= minNotional;
     }
 
-    // Validate an entire order
     bool IsValidOrder(Price price, Quantity quantity) const {
         return IsValidPrice(price) &&
                IsValidQuantity(quantity) &&
@@ -49,7 +46,6 @@ struct ExchangeRules {
     }
 };
 
-// Enum for order rejection reasons
 enum class RejectReason {
     None,
     InvalidPrice, // Price doesn't conform to tick size
@@ -62,7 +58,6 @@ enum class RejectReason {
     EmptyBook // Market order on empty book
 };
 
-// Structure to hold order validation result
 struct OrderValidation {
     bool isValid = true;
     RejectReason reason = RejectReason::None;

@@ -2,7 +2,6 @@
 
 #include "Core/OrderType.h"
 #include "Core/Types.h"
-#include "OrderBook/Order.h"
 
 class OrderModify {
 public:

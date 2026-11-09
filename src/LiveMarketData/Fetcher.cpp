@@ -4,7 +4,7 @@
 #include <iostream>
 #include <string>
 
-size_t WriteCallback(void *contents, size_t size, size_t nmemb, std::string *userp) {
+static size_t WriteCallback(void *contents, size_t size, size_t nmemb, std::string *userp) {
     size_t totalSize = size * nmemb;
     userp->append((char *) contents, totalSize);
     return totalSize;

@@ -11,7 +11,6 @@
 #include "OrderBook/OrderBook.h"
 
 int main(int argc, char *argv[]) {
-    // Initialize curl
     curl_global_init(CURL_GLOBAL_DEFAULT);
 
     // Default to SOL/USDT, but allow command line override
@@ -39,16 +38,12 @@ int main(int argc, char *argv[]) {
     std::cout << "Usage: ./LiveMarketData [SYMBOL] [REFRESH_SECONDS] [LEVELS]\n";
     std::cout << "Example: ./LiveMarketData ETHUSDT 1 15\n\n";
 
-    std::this_thread::sleep_for(std::chrono::seconds(2));
-
     Orderbook orderbook;
 
     try {
-        // Main loop, fetch and display orderbook
         int iteration = 0;
         while (true) {
             iteration++;
-            // Fetch snapshot from Binance
             std::string jsonResponse = FetchBinanceOrderbook(symbol, displayLevels);
 
             if (jsonResponse.empty()) {
@@ -57,15 +52,12 @@ int main(int argc, char *argv[]) {
                 continue;
             }
 
-            // Parse and process
             try {
                 BookSnapshotMessage snapshot = ParseBinanceSnapshot(jsonResponse);
 
                 if (orderbook.ProcessMarketData(snapshot)) {
-                    // Écrire l'état du marché pour l'agent Python
                     WriteMarketStateJson(orderbook, "../data/market_state.json", iteration, symbol);
 
-                    // Display the orderbook
                     PrintOrderbook(orderbook, symbol, displayLevels);
                 } else {
                     std::cerr << "Failed to process market data\n";
@@ -77,7 +69,6 @@ int main(int argc, char *argv[]) {
                 std::cerr << "Error processing data: " << e.what() << "\n";
             }
 
-            // Wait before next update
             std::this_thread::sleep_for(std::chrono::seconds(refreshInterval));
         }
     } catch (const std::exception &e) {
@@ -86,7 +77,6 @@ int main(int argc, char *argv[]) {
         return 1;
     }
 
-    // Cleanup
     curl_global_cleanup();
 
     return 0;

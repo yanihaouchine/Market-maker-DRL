@@ -1,4 +1,5 @@
 #include "OrderBook/OrderModify.h"
+#include "OrderBook/Order.h"
 
 OrderModify::OrderModify(OrderId orderId, Side side, Price price, Quantity quantity)
     : orderId_{orderId}

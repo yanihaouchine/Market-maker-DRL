@@ -74,7 +74,6 @@ window.MarketMindComponents = (function () {
   }
 
   function orderBookCard(data) {
-    // Robustesse : valeurs par défaut si null/NaN
     const askVal = (data.ask != null && !isNaN(data.ask)) ? data.ask.toFixed(2) : '--';
     const bidVal = (data.bid != null && !isNaN(data.bid)) ? data.bid.toFixed(2) : '--';
     let spreadVal = '--';

@@ -241,7 +241,6 @@
     const cash = document.getElementById("side-cash");
     const history = document.getElementById("side-history");
 
-    // Affichage robuste : valeurs par défaut claires
     if (inventory) {
       if (metrics.inventory == null || isNaN(metrics.inventory)) {
         inventory.textContent = "--";
@@ -386,7 +385,6 @@
     const product = document.getElementById("product-select")?.value || "SOLUSDT";
     const baseAsset = product.replace(/USDT$|BUSD$|BTC$|ETH$|BNB$/, "") || product;
 
-    // Build per-product inventory rows
     const invMap = lastMetrics.inventory_per_product || {};
     const invItems = Object.entries(invMap)
       .filter(([, qty]) => qty != null && qty !== 0)

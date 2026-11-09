@@ -12,11 +12,6 @@
 #include "Core/Types.h"
 #include "Core/OrderType.h"
 
-
-
-
-// ==================== UTILITIES ====================
-
 struct LatencyStats {
     double min_us;
     double max_us;
@@ -84,8 +79,6 @@ void printStats(const std::string& label, const LatencyStats& s) {
     std::cout << "  Throughput: " << formatNumber(static_cast<long long>(throughput)) << " ops/sec\n";
     std::cout << "\n";
 }
-
-// ==================== BENCHMARKS ====================
 
 void BenchmarkAddOrderLatency(int numOrders) {
     Orderbook orderbook;
@@ -378,8 +371,6 @@ void BenchmarkHFTLatency(int numOperations) {
         printStats("  HFT ModifyOrder", s);
     }
 }
-
-// ==================== MAIN ====================
 
 int main() {
     std::cout << std::string(70, '=') << "\n";

@@ -118,7 +118,7 @@ body {
   overflow-y: auto;
 }
 
-/* ── Stat Cards ───────────────────────────────────────────── */
+/* Stat Cards */
 .stat-cards {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
@@ -683,7 +683,7 @@ select {
 }
 
 
-/* ── PnL Card ─────────────────────────────────────────────────── */
+/* PnL Card */
 .pnl-card { margin-top: 0; }
 .pnl-header {
   display: flex;
@@ -731,7 +731,7 @@ select {
   font-weight: 600;
 }
 
-/* ── Agent status section ────────────────────────────────────── */
+/* Agent status section */
 .agent-status-section {
   background: rgba(15, 27, 45, 0.5);
   border: 1px solid var(--border);

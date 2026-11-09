@@ -11,7 +11,6 @@ BookSnapshotMessage ParseBinanceSnapshot(const std::string &jsonStr) {
     snapshot.timestamp = std::chrono::system_clock::now();
     snapshot.sequenceNumber = json["lastUpdateId"];
 
-    // Parse bids (buy orders)
     for (const auto &bid: json["bids"]) {
         SnapshotLevel level;
         level.price = static_cast<Price>(std::stod(bid[0].get<std::string>()) * 100); // Convert to cents
@@ -20,7 +19,6 @@ BookSnapshotMessage ParseBinanceSnapshot(const std::string &jsonStr) {
         snapshot.bids.push_back(level);
     }
 
-    // Parse asks (sell orders)
     for (const auto &ask: json["asks"]) {
         SnapshotLevel level;
         level.price = static_cast<Price>(std::stod(ask[0].get<std::string>()) * 100);
