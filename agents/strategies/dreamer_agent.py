@@ -6,6 +6,7 @@ Training: python -m agents.train_dreamer
 """
 
 import os
+from pathlib import Path
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -15,6 +16,8 @@ from typing import Dict, Any, Optional, Tuple
 from ..interfaces import BaseStrategy, StrategySignal
 from ..types import Side
 from ..market_data import MarketData
+
+MODELS_DIR = Path(__file__).resolve().parent.parent.parent / "models"
 
 
 def symlog(x: torch.Tensor) -> torch.Tensor:
@@ -221,7 +224,7 @@ class DreamerStrategy(BaseStrategy):
     """
 
     def __init__(self, symbol: str = "SOLUSDT",
-                 model_path: str = "models/dreamer_agent.pth",
+                 model_path: str = str(MODELS_DIR / "dreamer_agent.pth"),
                  quantity_per_trade: float = 5.0,
                  window_size: int = 30):
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")

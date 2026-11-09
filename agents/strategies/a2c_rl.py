@@ -3,6 +3,7 @@ A2C (Advantage Actor-Critic) strategy
 """
 
 import os
+from pathlib import Path
 import torch
 import torch.nn as nn
 import numpy as np
@@ -11,6 +12,9 @@ from typing import Dict, Any, Optional
 from ..interfaces import BaseStrategy, StrategySignal
 from ..types import Side
 from ..market_data import MarketData
+
+MODELS_DIR = Path(__file__).resolve().parent.parent.parent / "models"
+WINDOW = 30
 
 
 class ActorNN(nn.Module):
@@ -78,11 +82,11 @@ class A2CStrategy(BaseStrategy):
     """
 
     def __init__(self, symbol: str = "SOLUSDT",
-                 actor_path: str = "models/a2c_actor.pth",
-                 critic_path: str = "models/a2c_critic.pth",
+                 actor_path: str = str(MODELS_DIR / "a2c_actor.pth"),
+                 critic_path: str = str(MODELS_DIR / "a2c_critic.pth"),
                  quantity_per_trade: float = 5.0):
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        self.market_data = MarketData(window_size=10)
+        self.market_data = MarketData(window_size=WINDOW)
         self.quantity = quantity_per_trade
         self.model_loaded = False
         self.current_inventory = 0.0
@@ -113,10 +117,10 @@ class A2CStrategy(BaseStrategy):
         Build 121-dim observation vector identical to training env:
         [norm_close(30), norm_high(30), norm_low(30), norm_volume(30), norm_inventory]
         """
-        if len(self.market_data.prices) < 30:
+        if len(self.market_data.prices) < WINDOW:
             return None
 
-        prices = np.array(self.market_data.prices[-30:])
+        prices = np.array(self.market_data.prices)
         high   = prices * 1.001
         low    = prices * 0.999
         volume = np.ones(30)

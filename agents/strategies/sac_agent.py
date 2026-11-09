@@ -22,6 +22,7 @@ State space (STATE_DIM = 15):
 """
 
 import os
+from pathlib import Path
 import random
 from collections import deque
 from typing import Any, Dict, Optional, Tuple
@@ -35,6 +36,8 @@ import torch.optim as optim
 from ..interfaces import BaseStrategy, StrategySignal
 from ..market_data import MarketData
 from ..types import Side
+
+MODELS_DIR = Path(__file__).resolve().parent.parent.parent / "models"
 
 STATE_DIM = 15
 ACTION_DIM = 2
@@ -270,7 +273,7 @@ class SACStrategy(BaseStrategy):
     def __init__(
         self,
         symbol: str = "SOLUSDT",
-        model_path: str = "models/sac_agent.pth",
+        model_path: str = str(MODELS_DIR / "sac_agent.pth"),
         quantity_per_trade: float = 0.1,
         history_len: int = 10,
         min_spread_asymmetry: float = 0.15,

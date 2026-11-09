@@ -9,7 +9,7 @@ correctly.
 import torch
 import torch.nn as nn
 
-from agents.strategies.dqn_agent_faster import DQNStrategy
+from agents.strategies.dqn_agent_faster import WINDOW, DQNStrategy
 from agents.types import Side
 
 
@@ -47,15 +47,14 @@ def build_market_state(mid_price_cents: int = 10000):
 
 def warmup_strategy(strategy: DQNStrategy):
     state = build_market_state()
-    for _ in range(3):
+    for _ in range(WINDOW):
         strategy.update_data(state)
 
 
 def test_buy_path():
-    strategy = DQNStrategy(model_path="/tmp/no_model_needed.pth", device="cpu")
+    strategy = DQNStrategy(model_path="", device="cpu")
     strategy.model_loaded = True
-    strategy.policy_net = FixedQNetwork([0.1, 2.5, -1.0]).to(strategy.device)
-    strategy.target_net = strategy.policy_net
+    strategy.policy_net = FixedQNetwork([0.1, -1.0, 2.5]).to(strategy.device)
     strategy.current_inventory = 0.0
     warmup_strategy(strategy)
 
@@ -67,10 +66,9 @@ def test_buy_path():
 
 
 def test_sell_path():
-    strategy = DQNStrategy(model_path="/tmp/no_model_needed.pth", device="cpu")
+    strategy = DQNStrategy(model_path="", device="cpu")
     strategy.model_loaded = True
-    strategy.policy_net = FixedQNetwork([0.1, -0.2, 3.1]).to(strategy.device)
-    strategy.target_net = strategy.policy_net
+    strategy.policy_net = FixedQNetwork([3.1, -0.2, 0.1]).to(strategy.device)
     strategy.current_inventory = 5.0
     warmup_strategy(strategy)
 
@@ -81,10 +79,9 @@ def test_sell_path():
 
 
 def test_inventory_guard():
-    strategy = DQNStrategy(model_path="/tmp/no_model_needed.pth", device="cpu")
+    strategy = DQNStrategy(model_path="", device="cpu")
     strategy.model_loaded = True
-    strategy.policy_net = FixedQNetwork([0.0, -1.0, 5.0]).to(strategy.device)
-    strategy.target_net = strategy.policy_net
+    strategy.policy_net = FixedQNetwork([5.0, -1.0, 0.0]).to(strategy.device)
     strategy.current_inventory = 0.0
     warmup_strategy(strategy)
 

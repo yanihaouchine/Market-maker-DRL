@@ -45,7 +45,10 @@ class _QNet(nn.Module):
 
 
 class DQNStrategy(BaseStrategy):
-    def __init__(self, model_path: str = DEFAULT_MODEL_PATH, device: str = "cpu"):
+    def __init__(self, symbol: str = "SOLUSDT", quantity_per_trade: float = DEFAULT_QTY,
+                 model_path: str = DEFAULT_MODEL_PATH, device: str = "cpu"):
+        self.symbol = symbol
+        self.quantity = quantity_per_trade
         self.device = torch.device(device)
         self.model_loaded = False
 
@@ -122,14 +125,14 @@ class DQNStrategy(BaseStrategy):
                 return StrategySignal(side=None, price=bid_raw, quantity=0,
                                       reason="Max inventory reached (hold)")
             return StrategySignal(side=Side.BUY, price=bid_raw,
-                                  quantity=DEFAULT_QTY, reason="DQN → BUY")
+                                  quantity=self.quantity, reason="DQN → BUY")
 
         if action == 0:  # SELL
             if self.current_inventory <= 0:
                 return StrategySignal(side=None, price=ask_raw, quantity=0,
                                       reason="No inventory to sell (hold)")
             return StrategySignal(side=Side.SELL, price=ask_raw,
-                                  quantity=DEFAULT_QTY, reason="DQN → SELL")
+                                  quantity=self.quantity, reason="DQN → SELL")
 
         return StrategySignal(side=None, price=mid_raw, quantity=0, reason="DQN → HOLD")
 
