@@ -5,7 +5,7 @@ Script de test pour vérifier l'exécution d'ordres sur Binance testnet
 
 from ..exchange.binance_client import BinanceTestnetClient
 from ..exchange.config import BINANCE_TESTNET_API_KEY, BINANCE_TESTNET_API_SECRET
-from ..trading_types import Side
+from ..types import Side
 
 def main():
     print("Test de connexion Binance Testnet")
@@ -29,7 +29,7 @@ def main():
     print("\n Informations du compte...")
     account_info = client.get_account_info()
     if account_info:
-        print(f"   Compte actif")
+        print("   Compte actif")
         print(f"   Can Trade: {account_info.get('canTrade', False)}")
         print(f"   Can Withdraw: {account_info.get('canWithdraw', False)}")
     else:

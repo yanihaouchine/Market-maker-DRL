@@ -15,20 +15,6 @@ set(SOURCES
         src/OrderBook/Trade.cpp
 )
 
-# Header files
-set(HEADERS
-        include/Core/OrderType.h
-        include/Core/Types.h
-        include/Core/Constants.h
-        include/OrderBook/LevelInfo.h
-        include/OrderBook/Order.h
-        include/OrderBook/OrderModify.h
-        include/OrderBook/Trade.h
-        include/OrderBook/OrderBook.h
-        include/OrderBook/ExchangeRules.h
-        include/MarketData/MarketDataFeed.h
-)
-
 # Test executable (functionality and performance tests)
 add_executable(OrderBookTests
         tests/tests.cpp
@@ -42,10 +28,11 @@ include(FetchContent)
 FetchContent_Declare(
         json
         URL https://github.com/nlohmann/json/releases/download/v3.11.3/json.tar.xz
+        DOWNLOAD_EXTRACT_TIMESTAMP TRUE
 )
 FetchContent_MakeAvailable(json)
 
-# Fetch CURL with SSL support for Windows
+# Fetch CURL (static, HTTP only, platform-native TLS)
 FetchContent_Declare(
         curl
         GIT_REPOSITORY https://github.com/curl/curl.git
@@ -65,17 +52,17 @@ set(CURL_DISABLE_LDAPS ON CACHE BOOL "" FORCE)
 if(WIN32)
     set(CURL_USE_SCHANNEL ON CACHE BOOL "Use Windows native SSL" FORCE)
     set(CMAKE_USE_SCHANNEL ON CACHE BOOL "" FORCE)
-        set(CURL_USE_SECTRANSP OFF CACHE BOOL "Use Apple Secure Transport" FORCE)
-        set(CURL_USE_OPENSSL OFF CACHE BOOL "Use OpenSSL" FORCE)
+    set(CURL_USE_SECTRANSP OFF CACHE BOOL "Use Apple Secure Transport" FORCE)
+    set(CURL_USE_OPENSSL OFF CACHE BOOL "Use OpenSSL" FORCE)
 elseif(APPLE)
-        set(CURL_USE_SCHANNEL OFF CACHE BOOL "Use Windows native SSL" FORCE)
-        set(CMAKE_USE_SCHANNEL OFF CACHE BOOL "" FORCE)
-        set(CURL_USE_SECTRANSP ON CACHE BOOL "Use Apple Secure Transport" FORCE)
-        set(CURL_USE_OPENSSL OFF CACHE BOOL "Use OpenSSL" FORCE)
+    set(CURL_USE_SCHANNEL OFF CACHE BOOL "Use Windows native SSL" FORCE)
+    set(CMAKE_USE_SCHANNEL OFF CACHE BOOL "" FORCE)
+    set(CURL_USE_SECTRANSP ON CACHE BOOL "Use Apple Secure Transport" FORCE)
+    set(CURL_USE_OPENSSL OFF CACHE BOOL "Use OpenSSL" FORCE)
 else()
     set(CURL_USE_SCHANNEL OFF CACHE BOOL "" FORCE)
     set(CMAKE_USE_SCHANNEL OFF CACHE BOOL "" FORCE)
-        set(CURL_USE_SECTRANSP OFF CACHE BOOL "Use Apple Secure Transport" FORCE)
+    set(CURL_USE_SECTRANSP OFF CACHE BOOL "Use Apple Secure Transport" FORCE)
     set(CURL_USE_OPENSSL ON CACHE BOOL "Use OpenSSL" FORCE)
 endif()
 
@@ -132,8 +119,11 @@ message(STATUS "C++ Standard: ${CMAKE_CXX_STANDARD}")
 find_program(CLANG_FORMAT "clang-format")
 
 if (CLANG_FORMAT)
-    # Get all source files
-    file(GLOB_RECURSE ALL_SOURCE_FILES *.cpp *.h)
+    file(GLOB_RECURSE ALL_SOURCE_FILES
+            ${CMAKE_SOURCE_DIR}/src/*.cpp
+            ${CMAKE_SOURCE_DIR}/include/*.h
+            ${CMAKE_SOURCE_DIR}/tests/*.cpp
+    )
 
     # Add custom target for formatting
     add_custom_target(

@@ -10,32 +10,30 @@ def print_decision(decision: Dict):
     """Print decision analysis - simple and clear format"""
     action = decision['action'] or 'HOLD'
     reason = decision['reason']
-    quantity = decision.get('quantity', 0)
     
     # Color codes
     GREEN = '\033[92m'
     RED = '\033[91m'
     YELLOW = '\033[93m'
     RESET = '\033[0m'
-    BOLD = '\033[1m'
     
 
     if action == 'BUY':
         # BUY in green
         print(f"\n{GREEN}{'═'*60}")
-        print(f"  🔴 BUY")
+        print("  🔴 BUY")
         print(f"{'═'*60}{RESET}")
         print(f"  Reason:    {reason}")
     elif action == 'SELL':
         # SELL in red
         print(f"\n{RED}{'═'*60}")
-        print(f"  🟢 SELL")
+        print("  🟢 SELL")
         print(f"{'═'*60}{RESET}")
         print(f"  Reason:    {reason}")
     else:
         # HOLD in yellow
         print(f"\n{YELLOW}{'═'*60}")
-        print(f"  ⏸️  HOLD")
+        print("  ⏸️  HOLD")
         print(f"{'═'*60}{RESET}")
         print(f"  Reason:    {reason}")
 
@@ -86,7 +84,7 @@ def print_final_summary(cash: float, initial_cash: float, total_trades: int, inv
     RESET = '\033[0m'
     
     print(f"\n{BOLD}{'═'*60}")
-    print(f"FINAL SUMMARY")
+    print("FINAL SUMMARY")
     print(f"{'═'*60}{RESET}")
     print(f"  Total Trades:     {total_trades}")
     print(f"  Initial Cash:     ${initial_cash:.2f}")

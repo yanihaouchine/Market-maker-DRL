@@ -10,7 +10,6 @@ Usage:
 
 from __future__ import annotations
 
-import os
 import sys
 from collections import deque
 from pathlib import Path
@@ -345,10 +344,6 @@ class _PPOPolicyNet(nn.Module):
 
 
 # ── Dreamer (encoder + RSSM + actor uniquement, pour inférence) ──────────────
-
-def _silu(x):
-    return F.silu(x)
-
 
 class _DreamerEncoder(nn.Module):
     def __init__(self, obs_dim=121, embed_dim=256):

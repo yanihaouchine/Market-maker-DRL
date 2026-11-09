@@ -13,7 +13,6 @@ Run with: python3 -m agents.tests.test_system
 """
 
 import sys
-import json
 from ..strategies.mean_reversion import MeanReversionStrategy
 from ..strategies.rsi import RSIStrategy
 from ..strategies.bollinger_bands import BollingerBandsStrategy

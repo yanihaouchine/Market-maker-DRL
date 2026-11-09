@@ -12,9 +12,9 @@ based on cryptocurrency market data. It includes:
 import numpy as np
 import tensorflow as tf
 from tensorflow import keras
-from keras import layers, models
+from keras import layers
 from collections import deque
-from typing import Tuple, Dict, Optional
+from typing import Tuple, Optional
 
 
 class DQNNetwork(keras.Model):

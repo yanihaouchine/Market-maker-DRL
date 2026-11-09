@@ -12,7 +12,6 @@ Usage:
 import argparse
 import importlib.util
 import io
-import os
 import sys
 import types
 import zipfile
@@ -35,7 +34,7 @@ def ensure_data():
     if CSV_FILE.exists():
         return
     DATA_DIR.mkdir(parents=True, exist_ok=True)
-    print(f"[Data] Downloading SOLUSDT aggTrades from Binance…")
+    print("[Data] Downloading SOLUSDT aggTrades from Binance…")
     try:
         resp = urlopen(BINANCE_URL)
         buf = io.BytesIO(resp.read())

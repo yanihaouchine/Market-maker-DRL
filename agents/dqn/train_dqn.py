@@ -13,8 +13,7 @@ import pandas as pd
 import os
 import sys
 from collections import deque
-from pathlib import Path
-from typing import Tuple, List, Dict, TYPE_CHECKING
+from typing import Tuple, Dict, TYPE_CHECKING
 
 # Add workspace root to path to import agents module
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
@@ -119,7 +118,7 @@ class CryptoTradingEnv:
         self.features_per_candle = 7
         self.state_dim = window_size * self.features_per_candle + 1
         
-        print(f"📈 Environment created:")
+        print("📈 Environment created:")
         print(f"   State dimension: {self.state_dim}")
         print(f"   Max steps per episode: {self.max_steps}")
         print(f"   Total candles available: {total_candles}")
@@ -239,7 +238,6 @@ class CryptoTradingEnv:
         """
         current_price = self.closes[self.current_step]
         self.current_step += 1
-        next_price = self.closes[self.current_step]
         
         # Execute action
         realized_pnl = 0.0
@@ -509,7 +507,7 @@ def plot_training_results(metrics: Dict, output_dir: str = ".") -> None:
     """
     try:
         import matplotlib.pyplot as plt
-    except Exception as e:
+    except Exception:
         print("⚠️  Matplotlib not available or incompatible with current NumPy; skipping plots.")
         return
 
@@ -618,4 +616,4 @@ if __name__ == "__main__":
     print("="*60)
     print("Model saved to: models_checkpoints/dqn_policy_FINAL.keras")
     print(f"Best model saved to: {metrics['best_model_path']}")
-    print(f"Plots saved to: dqn_training_metrics.png")
+    print("Plots saved to: dqn_training_metrics.png")

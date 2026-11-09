@@ -6,7 +6,7 @@ import json
 import os
 from typing import Dict, Optional
 
-from .trading_types import Side
+from .types import Side
 from .strategies.mean_reversion import MeanReversionStrategy
 from .exchange.binance_client import BinanceTestnetClient
 from .display import print_decision, print_execution, print_final_summary
@@ -45,9 +45,9 @@ class TradingAgent:
         
         # Test connectivity (optional - may fail in offline/demo mode)
         if self.binance.test_connectivity():
-            print(f"Connected to Binance testnet")
+            print("Connected to Binance testnet")
         else:
-            print(f"⚠️  Warning: Cannot connect to Binance testnet (running in demo/offline mode)")
+            print("⚠️  Warning: Cannot connect to Binance testnet (running in demo/offline mode)")
         
         # Get initial USDT balance (use default 10000 USDT if offline/demo)
         balance = self.binance.get_balance("USDT")
@@ -165,7 +165,7 @@ class TradingAgent:
                 
                 return order_response
             else:
-                print(f"Order failed")
+                print("Order failed")
                 return None
                 
         except Exception as e:
@@ -183,7 +183,7 @@ class TradingAgent:
 
         print(f"\n Trading Agent Started - {self.symbol}")
         print(f" Reading market data from: {self.state_file}")
-        print(f" Executing orders on: Binance Testnet")
+        print(" Executing orders on: Binance Testnet")
 
         stop_flag = {"stop": False}
 

@@ -6,7 +6,6 @@ Training: python -m agents.train_dreamer
 """
 
 import os
-import copy
 import torch
 import torch.nn as nn
 import torch.nn.functional as F

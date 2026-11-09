@@ -211,7 +211,6 @@ class MarketMakingEnv:
         bar = self.bars[idx]
         # Recent log returns
         log_rets = self.bars[idx - self.history_len:idx + 1, self.BAR_LOG_RET][-self.history_len:]
-        inv_norm = np.clip(self.inventory / MAX_INVENTORY, -1.0, 1.0)
         vol = float(bar[self.BAR_VOLATILITY])
         buyer_frac = float(bar[self.BAR_BUYER_FRAC])
         # Approximate market spread in bps from bar range
@@ -241,7 +240,6 @@ class MarketMakingEnv:
         bar_high = float(bar[self.BAR_HIGH])
         bar_low = float(bar[self.BAR_LOW])
         volatility = float(bar[self.BAR_VOLATILITY])
-        buyer_frac = float(bar[self.BAR_BUYER_FRAC])
 
         bid_spread = float(np.clip(action[0], 0.0, MAX_SPREAD_PCT))
         ask_spread = float(np.clip(action[1], 0.0, MAX_SPREAD_PCT))

@@ -5,7 +5,6 @@ Usage: python -m agents.ppo.evaluate_ppo
 
 import numpy as np
 import torch
-import pandas as pd
 import matplotlib.pyplot as plt
 import os
 

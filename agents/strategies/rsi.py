@@ -4,7 +4,7 @@ RSI (Relative Strength Index) Trading Strategy
 
 from typing import Dict, Optional
 from collections import deque
-from ..trading_types import Side
+from ..types import Side
 from ..market_data import MarketData
 
 

@@ -25,8 +25,7 @@ sys.path.insert(0, str(ROOT))
 from agents.strategies.sac_agent import Actor, STATE_DIM, ACTION_DIM, MAX_SPREAD_PCT
 from agents.strategies.train_sac import (
     load_bars, MarketMakingEnv,
-    EPISODE_LEN, HISTORY_LEN, QTY, MAX_INVENTORY,
-    LAMBDA_INV, LAMBDA_ADVERSE, LIQD_COST_PCT, DATA_DIR,
+    EPISODE_LEN, HISTORY_LEN, DATA_DIR,
 )
 
 N_EPISODES   = 50

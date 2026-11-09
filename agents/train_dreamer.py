@@ -57,7 +57,7 @@ _bootstrap("agents.strategies.a2c_rl",          _PKG_ROOT / "strategies" / "a2c_
 _bootstrap("agents.strategies.dreamer_agent",   _PKG_ROOT / "strategies" / "dreamer_agent.py")
 _bootstrap("agents.train_a2c",                  _PKG_ROOT / "train_a2c.py")
 
-from agents.train_a2c import ContinuousBinanceEnv, build_volume_bars
+from agents.train_a2c import ContinuousBinanceEnv
 from agents.strategies.dreamer_agent import (
     Encoder, RSSM, Decoder, RewardPredictor, ContinuePredictor,
     Actor, Critic, symlog, symexp,

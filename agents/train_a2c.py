@@ -10,12 +10,10 @@ https://huggingface.co/learn/deep-rl-course/unit6/advantage-actor-critic
 """
 
 import os
-import random
 import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
 import torch
-import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
 from collections import deque

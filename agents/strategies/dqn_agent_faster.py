@@ -50,14 +50,11 @@ class DQNStrategy(BaseStrategy):
         self.model_loaded = False
 
         self.policy_net = _QNet().to(self.device)
-        self.target_net = _QNet().to(self.device)
 
         if os.path.exists(model_path):
             sd = torch.load(model_path, map_location=self.device, weights_only=True)
             self.policy_net.load_state_dict(sd)
-            self.target_net.load_state_dict(sd)
             self.policy_net.eval()
-            self.target_net.eval()
             self.model_loaded = True
         else:
             print(f"[DQN] Warning: model not found at {model_path}, running random policy")

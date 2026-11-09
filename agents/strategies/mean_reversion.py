@@ -5,7 +5,7 @@ Trading strategy implementation - Mean reversion
 from typing import Dict, Optional
 from collections import deque
 import statistics
-from ..trading_types import Side
+from ..types import Side
 from ..market_data import MarketData
 
 

@@ -7,7 +7,7 @@ import hashlib
 import time
 import requests
 from typing import Dict, Optional
-from ..trading_types import Side
+from ..types import Side
 
 
 class BinanceTestnetClient:
@@ -130,63 +130,6 @@ class BinanceTestnetClient:
             print(f"Error placing order: {e}")
             return None
     
-    def place_limit_order(self, symbol: str, side: Side, quantity: float, 
-                         price: float) -> Optional[Dict]:
-        """Place a limit order
-        
-        Args:
-            symbol: Trading pair (e.g., "SOLUSDT")
-            side: BUY or SELL
-            quantity: Quantity to trade
-            price: Limit price
-        
-        Returns:
-            Order response or None if failed
-        """
-        try:
-            endpoint = "/api/v3/order"
-            
-            params = {
-                'symbol': symbol,
-                'side': side.value.upper(),
-                'type': 'LIMIT',
-                'timeInForce': 'GTC',  # Good Till Cancelled
-                'quantity': f"{quantity:.8f}".rstrip('0').rstrip('.'),
-                'price': f"{price:.8f}".rstrip('0').rstrip('.'),
-            }
-
-            return self._send_signed_request("POST", endpoint, params)
-                
-        except Exception as e:
-            print(f"Error placing limit order: {e}")
-            return None
-    
-    def get_order_status(self, symbol: str, order_id: int) -> Optional[Dict]:
-        """Get status of a specific order"""
-        try:
-            endpoint = "/api/v3/order"
-            params = {
-                'symbol': symbol,
-                'orderId': order_id,
-            }
-            return self._send_signed_request("GET", endpoint, params)
-        except Exception as e:
-            print(f"Error getting order status: {e}")
-            return None
-    
-    def cancel_order(self, symbol: str, order_id: int) -> Optional[Dict]:
-        """Cancel an open order"""
-        try:
-            endpoint = "/api/v3/order"
-            params = {
-                'symbol': symbol,
-                'orderId': order_id,
-            }
-            return self._send_signed_request("DELETE", endpoint, params)
-        except Exception as e:
-            print(f"Error canceling order: {e}")
-            return None
-    
     def get_open_orders(self, symbol: Optional[str] = None) -> Optional[list]:
         """Get all open orders"""
         try:
@@ -205,5 +148,5 @@ class BinanceTestnetClient:
         try:
             response = self.session.get(f"{self.base_url}/api/v3/ping", timeout=5)
             return response.status_code == 200
-        except:
+        except Exception:
             return False
