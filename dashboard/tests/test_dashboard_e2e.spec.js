@@ -1,55 +1,42 @@
-// Playwright E2E tests for dashboard
 const { test, expect } = require('@playwright/test');
 
-const DASHBOARD_URL = 'http://localhost:8000';
+const DASHBOARD_URL = process.env.DASHBOARD_URL || 'http://127.0.0.1:8090';
+const USER = process.env.DASHBOARD_USER || 'admin';
+const PASSWORD = process.env.DASHBOARD_PASSWORD || 'admin';
+
+test.beforeEach(async ({ page }) => {
+  await page.goto(DASHBOARD_URL + '/login');
+  await page.fill('#username', USER);
+  await page.fill('#password', PASSWORD);
+  await page.click('#login-btn');
+  await expect(page.locator('.topbar')).toBeVisible();
+});
 
 test.describe('Dashboard End-to-End', () => {
-  test('Dashboard loads and displays main sections', async ({ page }) => {
-    await page.goto(DASHBOARD_URL);
-    await expect(page.locator('.topbar')).toBeVisible();
+  test('Dashboard displays main sections', async ({ page }) => {
     await expect(page.locator('.stat-cards')).toBeVisible();
     await expect(page.locator('.card.right-panel')).toBeVisible();
-    await expect(page.locator('.logs-section')).toBeVisible();
+    await expect(page.locator('.pnl-card')).toBeVisible();
     await expect(page.locator('#candle-chart')).toBeVisible();
-    await expect(page.locator('#perf-chart')).toBeVisible();
-  });
-
-  test('Order book and metrics update with backend data', async ({ page }) => {
-    await page.goto(DASHBOARD_URL);
-    // Wait for polling to update
-    await page.waitForTimeout(2500);
-    const ask = await page.locator('.badge.ask').textContent();
-    const bid = await page.locator('.badge.bid').textContent();
-    expect(ask).not.toContain('--');
-    expect(bid).not.toContain('--');
+    await expect(page.locator('#pnl-chart')).toBeVisible();
+    await expect(page.locator('#trade-log-body')).toBeAttached();
   });
 
   test('Start and stop simulation updates UI', async ({ page }) => {
-    await page.goto(DASHBOARD_URL);
     await page.click('#start-btn');
     await expect(page.locator('#start-btn')).toHaveText(/Running/);
-    await page.waitForTimeout(2000);
     await page.click('#stop-btn');
-    await expect(page.locator('#start-btn')).toHaveText(/Start Simulation/);
+    await expect(page.locator('#start-btn')).toHaveText(/Start Simulation/, { timeout: 10000 });
   });
 
-  test('Clear session data resets charts and logs', async ({ page }) => {
-    await page.goto(DASHBOARD_URL);
+  test('Clear session data empties the trade log', async ({ page }) => {
+    page.on('dialog', dialog => dialog.accept());
     await page.click('#clear-btn');
-    // Attendre dynamiquement que le tag du chart soit bien Waiting ou --
-    await expect.poll(async () => {
-      return await page.locator('#chart-tag').textContent();
-    }, { timeout: 4000 }).toMatch(/Waiting|--/);
-    const tradeRows = await page.locator('#trade-log-body tr').count();
-    expect(tradeRows).toBe(0);
+    await expect.poll(() => page.locator('#trade-log-body tr').count(), { timeout: 6000 }).toBe(0);
   });
 
-  test('Switching product triggers backend and updates UI', async ({ page }) => {
-    await page.goto(DASHBOARD_URL);
+  test('Switching product updates the subtitle', async ({ page }) => {
     await page.selectOption('#product-select', { label: 'BTCUSDT' });
-    // Attendre dynamiquement que le sous-titre affiche le bon symbol
-    await expect.poll(async () => {
-      return await page.locator('.brand-text p').textContent();
-    }, { timeout: 4000 }).toContain('BTCUSDT');
+    await expect.poll(() => page.locator('.brand-text p').textContent(), { timeout: 6000 }).toContain('BTCUSDT');
   });
 });

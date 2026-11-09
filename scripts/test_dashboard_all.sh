@@ -1,26 +1,28 @@
 #!/bin/bash
-# Script complet pour lancer le serveur dashboard, attendre qu'il soit prêt, puis lancer les tests API et E2E
+# Lance le serveur dashboard, attend qu'il réponde, puis exécute les tests API et E2E.
+# PYTHON permet de choisir l'interpréteur (défaut : eval_venv/bin/python s'il existe).
 
-set -e
+PROJECT_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+cd "$PROJECT_ROOT" || exit 1
 
-# 1. Libérer le port 8000
-bash "$(dirname "$0")/kill_port_8000.sh"
+PORT=8090
+URL="http://127.0.0.1:$PORT"
+PYTHON="${PYTHON:-$( [ -x eval_venv/bin/python ] && echo eval_venv/bin/python || echo python3 )}"
+SERVER_LOG="$(mktemp)"
 
+bash scripts/kill_port.sh "$PORT"
 
-# 2. Lancer le serveur en arrière-plan et capturer les logs
-SERVER_LOG="/tmp/dashboard_server.log"
-rm -f "$SERVER_LOG"
-python3 dashboard/server.py > "$SERVER_LOG" 2>&1 &
+"$PYTHON" dashboard/server.py > "$SERVER_LOG" 2>&1 &
 SERVER_PID=$!
+trap 'kill $SERVER_PID 2>/dev/null; rm -f "$SERVER_LOG"' EXIT
 
-# 3. Attendre que le serveur soit prêt (ou crash)
 for i in {1..15}; do
-  if curl -s http://localhost:8000 > /dev/null; then
+  if curl -s "$URL/login" > /dev/null; then
     echo "[OK] Dashboard server is up."
     break
   fi
   if ! kill -0 $SERVER_PID 2>/dev/null; then
-    echo "[FAIL] Le serveur dashboard a crashé au démarrage. Voici les logs :"
+    echo "[FAIL] Le serveur dashboard a crashé au démarrage :"
     cat "$SERVER_LOG"
     exit 1
   fi
@@ -28,34 +30,26 @@ for i in {1..15}; do
   sleep 1
 done
 
-# Vérifier que le serveur est bien UP
-if ! kill -0 $SERVER_PID 2>/dev/null; then
-  echo "[FAIL] Le serveur dashboard n'est pas lancé. Voici les logs :"
+if ! curl -s "$URL/login" > /dev/null; then
+  echo "[FAIL] Le serveur ne répond pas après 15 s :"
   cat "$SERVER_LOG"
   exit 1
 fi
 
-# 4. Lancer les tests API Python
-.venv/bin/python -m pytest dashboard/tests/test_api_backend.py
+DASHBOARD_URL="$URL" "$PYTHON" -m pytest dashboard/tests/test_api_backend.py
 API_STATUS=$?
 
-# 5. Lancer les tests E2E Playwright (si installés)
-if [ -f node_modules/.bin/playwright ]; then
-  npx playwright test dashboard/tests/test_dashboard_e2e.spec.js
+if [ -x node_modules/.bin/playwright ]; then
+  DASHBOARD_URL="$URL" npx playwright test
   E2E_STATUS=$?
 else
-  echo "[WARN] Playwright n'est pas installé. Skipping E2E tests."
+  echo "[WARN] Playwright n'est pas installé (npm ci && npx playwright install). Tests E2E ignorés."
   E2E_STATUS=0
 fi
 
-# 6. Arrêter le serveur
-kill $SERVER_PID
-
-# 7. Résumé
 if [ $API_STATUS -eq 0 ] && [ $E2E_STATUS -eq 0 ]; then
-  echo "\n✅ Tous les tests sont PASSÉS."
-  exit 0
+  echo "Tous les tests sont passés."
 else
-  echo "\n❌ Certains tests ont échoué."
+  echo "Certains tests ont échoué."
   exit 1
 fi

@@ -2,7 +2,7 @@
 # Évaluation hors-échantillon de tous les agents (règles + RL) sur SOLUSDT mars 2026.
 #
 # - Crée le venv eval_venv/ si manquant
-# - Installe les dépendances (torch CPU, gymnasium, pandas, matplotlib)
+# - Installe les dépendances (torch CPU + requirements.txt)
 # - Télécharge SOLUSDT-aggTrades-2026-03.csv depuis Binance Vision si manquant
 # - Lance eval/oos_eval.py
 #
@@ -24,7 +24,7 @@ if [ ! -d "$VENV" ]; then
     python3 -m venv "$VENV"
     "$VENV/bin/pip" install --quiet --upgrade pip
     "$VENV/bin/pip" install --quiet torch --index-url https://download.pytorch.org/whl/cpu
-    "$VENV/bin/pip" install --quiet gymnasium pandas numpy matplotlib
+    "$VENV/bin/pip" install --quiet -r requirements.txt
     echo "[setup] dépendances installées"
 fi
 
