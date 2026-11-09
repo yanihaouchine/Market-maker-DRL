@@ -10,17 +10,14 @@ Usage:
 """
 
 import argparse
-import importlib.util
 import io
 import sys
-import types
 import zipfile
 from pathlib import Path
 from urllib.request import urlopen
 
-# ---------------------------------------------------------------------------
-# Auto-download Binance aggTrades data if missing
-# ---------------------------------------------------------------------------
+from agents.train_dreamer import train_dreamer
+
 DATA_DIR = Path(__file__).resolve().parent / "data"
 CSV_FILE = DATA_DIR / "SOLUSDT-aggTrades-2026-02.csv"
 
@@ -39,7 +36,6 @@ def ensure_data():
         resp = urlopen(BINANCE_URL)
         buf = io.BytesIO(resp.read())
         with zipfile.ZipFile(buf) as zf:
-            # The zip typically contains a single .csv
             csv_name = [n for n in zf.namelist() if n.endswith(".csv")][0]
             zf.extract(csv_name, str(DATA_DIR))
             extracted = DATA_DIR / csv_name
@@ -51,25 +47,6 @@ def ensure_data():
         print(f"[Data] Please manually download and place CSV at:\n       {CSV_FILE}")
         sys.exit(1)
 
-
-# Bootstrap agents package without triggering agents/__init__.py
-_PKG_ROOT = Path(__file__).resolve().parent / "agents"
-
-if "agents" not in sys.modules:
-    _pkg = types.ModuleType("agents")
-    _pkg.__path__ = [str(_PKG_ROOT)]
-    _pkg.__package__ = "agents"
-    sys.modules["agents"] = _pkg
-
-# Load train_dreamer (it handles the rest of the bootstrap chain)
-_spec = importlib.util.spec_from_file_location(
-    "agents.train_dreamer", str(_PKG_ROOT / "train_dreamer.py")
-)
-_mod = importlib.util.module_from_spec(_spec)
-sys.modules["agents.train_dreamer"] = _mod
-_spec.loader.exec_module(_mod)
-
-train_dreamer = _mod.train_dreamer
 
 
 def main():
@@ -83,7 +60,6 @@ def main():
                         help="CPU-friendly settings: batch=8, seq=16, grad_steps=2 (~10s/ep)")
     args = parser.parse_args()
 
-    # --fast presets (can be overridden individually)
     if args.fast:
         batch_size = args.batch_size or 8
         seq_len = args.seq_len or 16

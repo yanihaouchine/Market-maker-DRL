@@ -36,7 +36,6 @@ from ..interfaces import BaseStrategy, StrategySignal
 from ..market_data import MarketData
 from ..types import Side
 
-# ── Constants ─────────────────────────────────────────────────────────────────
 STATE_DIM = 15
 ACTION_DIM = 2
 MAX_SPREAD_PCT = 0.005      # 0.5% max quote distance from mid
@@ -66,8 +65,6 @@ def build_sac_state(
         np.clip(float(vol_ratio), 0.0, 5.0),
     ], dtype=np.float32)
 
-
-# ── Networks ──────────────────────────────────────────────────────────────────
 
 def _mlp(in_dim: int, out_dim: int, hidden: int = 256) -> nn.Sequential:
     return nn.Sequential(
@@ -141,8 +138,6 @@ class Critic(nn.Module):
         return torch.min(q1, q2)
 
 
-# ── Replay buffer ──────────────────────────────────────────────────────────────
-
 class ReplayBuffer:
     def __init__(self, capacity: int = 500_000):
         self.buf = deque(maxlen=capacity)
@@ -163,8 +158,6 @@ class ReplayBuffer:
         to = lambda x: torch.tensor(np.array(x), dtype=torch.float32, device=device)
         return to(s), to(a), to(r).unsqueeze(1), to(s2), to(d).unsqueeze(1)
 
-
-# ── SAC algorithm ─────────────────────────────────────────────────────────────
 
 class SACAgent:
     """
@@ -226,7 +219,7 @@ class SACAgent:
 
         s, a, r, s2, done = self.buffer.sample(self.batch_size, self.device)
 
-        # ── Critic update ──────────────────────────────────────────────────
+        # Critic update
         with torch.no_grad():
             a2, log_p2 = self.actor.sample(s2)
             q1_t, q2_t = self.critic_target(s2, a2)
@@ -241,7 +234,7 @@ class SACAgent:
         nn.utils.clip_grad_norm_(self.critic.parameters(), 5.0)
         self.critic_opt.step()
 
-        # ── Actor update ───────────────────────────────────────────────────
+        # Actor update
         a_new, log_p = self.actor.sample(s)
         q_new = self.critic.min_q(s, a_new)
         actor_loss = (self.alpha.detach() * log_p - q_new).mean()
@@ -250,7 +243,7 @@ class SACAgent:
         nn.utils.clip_grad_norm_(self.actor.parameters(), 5.0)
         self.actor_opt.step()
 
-        # ── Soft update of target critic ───────────────────────────────────
+        # Soft update of target critic
         for p, p_t in zip(self.critic.parameters(), self.critic_target.parameters()):
             p_t.data.mul_(1 - self.tau).add_(self.tau * p.data)
 
@@ -262,8 +255,6 @@ class SACAgent:
             "entropy": -log_p.mean().item(),
         }
 
-
-# ── Live strategy (BaseStrategy interface) ────────────────────────────────────
 
 class SACStrategy(BaseStrategy):
     """
@@ -400,7 +391,6 @@ class SACStrategy(BaseStrategy):
         bid_price = mid * (1.0 - bid_spread)
         ask_price = mid * (1.0 + ask_spread)
 
-        # Determine side from spread asymmetry
         asymmetry = (ask_spread - bid_spread) / (ask_spread + bid_spread + 1e-8)
         if asymmetry > self.min_asymmetry:
             # Agent is quoting tighter on bid → wants to buy

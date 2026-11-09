@@ -11,8 +11,7 @@ from ..types import Side
 
 
 class BinanceTestnetClient:
-    """Client for Binance Testnet API"""
-    
+
     def __init__(self, api_key: str, api_secret: str):
         self.api_key = api_key
         self.api_secret = api_secret
@@ -25,7 +24,7 @@ class BinanceTestnetClient:
             'X-MBX-APIKEY': self.api_key
         })
         self._sync_time()
-        
+
     def _sign_request(self, params: Dict) -> str:
         """Generate signature for authenticated requests"""
         query_string = '&'.join([f"{k}={v}" for k, v in params.items()])
@@ -80,43 +79,30 @@ class BinanceTestnetClient:
 
         print(f"Order failed: {response.status_code} - {response.text}")
         return None
-    
+
     def get_account_info(self) -> Optional[Dict]:
-        """Get account information"""
         try:
             endpoint = "/api/v3/account"
             return self._send_signed_request("GET", endpoint, {})
         except Exception as e:
             print(f"Error getting account info: {e}")
             return None
-    
+
     def get_balance(self, asset: str = "USDT") -> Optional[float]:
-        """Get balance for a specific asset"""
         account_info = self.get_account_info()
         if not account_info:
             return None
-        
+
         for balance in account_info.get('balances', []):
             if balance['asset'] == asset:
                 return float(balance['free'])
         return None
-    
-    def place_order(self, symbol: str, side: Side, quantity: float, 
+
+    def place_order(self, symbol: str, side: Side, quantity: float,
                    order_type: str = "MARKET") -> Optional[Dict]:
-        """Place an order on Binance testnet
-        
-        Args:
-            symbol: Trading pair (e.g., "SOLUSDT")
-            side: BUY or SELL
-            quantity: Quantity to trade
-            order_type: MARKET, LIMIT, etc.
-        
-        Returns:
-            Order response or None if failed
-        """
         try:
             endpoint = "/api/v3/order"
-            
+
             params = {
                 'symbol': symbol,
                 'side': side.value.upper(),
@@ -125,13 +111,12 @@ class BinanceTestnetClient:
             }
 
             return self._send_signed_request("POST", endpoint, params)
-                
+
         except Exception as e:
             print(f"Error placing order: {e}")
             return None
-    
+
     def get_open_orders(self, symbol: Optional[str] = None) -> Optional[list]:
-        """Get all open orders"""
         try:
             endpoint = "/api/v3/openOrders"
             params = {}
@@ -142,9 +127,8 @@ class BinanceTestnetClient:
         except Exception as e:
             print(f"Error getting open orders: {e}")
             return None
-    
+
     def test_connectivity(self) -> bool:
-        """Test connection to Binance testnet"""
         try:
             response = self.session.get(f"{self.base_url}/api/v3/ping", timeout=5)
             return response.status_code == 200

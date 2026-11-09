@@ -57,7 +57,6 @@ from agents.strategies.sac_agent import (
     build_sac_state,
 )
 
-# ── Hyperparameters ───────────────────────────────────────────────────────────
 EPISODE_LEN = 240        # steps (4 hours of 1-min bars)
 HISTORY_LEN = 10         # bars of price history in state
 TOTAL_EPISODES = int(os.getenv("SAC_TOTAL_EPISODES", "2000"))
@@ -80,8 +79,6 @@ LIQD_COST_PCT = 0.001    # liquidation cost on terminal inventory
 SEED = int(os.getenv("SAC_SEED", "42"))
 CHECKPOINT_EVERY = int(os.getenv("SAC_CHECKPOINT_EVERY", "50"))
 
-
-# ── Data loading (same pipeline as train_lstm) ────────────────────────────────
 
 COLS = [
     "agg_id", "price", "qty",
@@ -163,8 +160,6 @@ def load_bars(data_dir: Path) -> np.ndarray:
     return bars
 
 
-# ── Market making simulation environment ──────────────────────────────────────
-
 class MarketMakingEnv:
     """
     Simulates a market making agent in a 1-minute bar environment
@@ -209,7 +204,6 @@ class MarketMakingEnv:
     def _get_state(self) -> np.ndarray:
         idx = self.start + self.history_len + self.step_idx
         bar = self.bars[idx]
-        # Recent log returns
         log_rets = self.bars[idx - self.history_len:idx + 1, self.BAR_LOG_RET][-self.history_len:]
         vol = float(bar[self.BAR_VOLATILITY])
         buyer_frac = float(bar[self.BAR_BUYER_FRAC])
@@ -246,7 +240,6 @@ class MarketMakingEnv:
         bid_price = mid * (1.0 - bid_spread)
         ask_price = mid * (1.0 + ask_spread)
 
-        # ── Order fill simulation ──────────────────────────────────────────
         # Bid fills if bar touched the bid level (sellers came to us)
         bid_filled = (bar_low <= bid_price) and (self.inventory < MAX_INVENTORY)
         # Ask fills if bar touched the ask level (buyers came to us)
@@ -292,8 +285,6 @@ class MarketMakingEnv:
         }
         return next_state, reward, done, info
 
-
-# ── Training ───────────────────────────────────────────────────────────────────
 
 def evaluate(agent: SACAgent, bars: np.ndarray, n_episodes: int = VAL_EPISODES
              ) -> float:
@@ -353,7 +344,6 @@ def train():
     print(f"{'='*60}\n")
     train_start = time.time()
 
-    # ── Load data ──────────────────────────────────────────────────────────
     bars = load_bars(DATA_DIR)
 
     # Chronological split: 70% train, 15% val, 15% test
@@ -366,10 +356,9 @@ def train():
           f"test: {n - n_val:,} bars\n")
 
     if len(train_bars) < EPISODE_LEN + HISTORY_LEN + 10:
-        print("❌ Not enough data for training.")
+        print("Not enough data for training.")
         sys.exit(1)
 
-    # ── Agent & environment ────────────────────────────────────────────────
     agent = SACAgent(
         lr=LR, gamma=GAMMA, tau=TAU,
         batch_size=BATCH_SIZE, replay_capacity=REPLAY_CAPACITY,
@@ -414,7 +403,6 @@ def train():
             state = next_state
             ep_reward += reward
 
-            # Train
             if episode > WARMUP_EPISODES:
                 for _ in range(UPDATES_PER_STEP):
                     m = agent.update()
@@ -462,7 +450,7 @@ def train():
             "avg_entropy": float(avg_entropy) if np.isfinite(avg_entropy) else "",
         })
 
-        best_mark = " ✓" if is_best else ""
+        best_mark = " *" if is_best else ""
         print(
             f"{episode:>5}  {ep_reward:>10.2f}  {avg20:>8.2f}  "
             f"{val_str}  {agent.updates:>8,}  {best_mark}"
@@ -472,7 +460,7 @@ def train():
             print(f"\nEarly stop — no improvement for {PATIENCE} episodes.")
             break
 
-    # ── Final test evaluation ──────────────────────────────────────────────
+    # Final test evaluation
     _save_checkpoint(LAST_MODEL_PATH, episode, agent, best_val_reward)
 
     if MODEL_PATH.exists():
@@ -484,17 +472,16 @@ def train():
         if len(test_bars) >= EPISODE_LEN + HISTORY_LEN + 10:
             test_reward = evaluate(agent, test_bars, n_episodes=20)
             print(f"Test reward (20 episodes): {test_reward:.4f}")
-        print(f"\n✅ Best model saved to {MODEL_PATH}")
-        print(f"✅ Last model saved to {LAST_MODEL_PATH}")
+        print(f"\nBest model saved to {MODEL_PATH}")
+        print(f"Last model saved to {LAST_MODEL_PATH}")
     else:
-        print("\n⚠️  No checkpoint saved (training may need more episodes).")
+        print("\nNo checkpoint saved (training may need more episodes).")
 
     elapsed = time.time() - train_start
     h, rem = divmod(int(elapsed), 3600)
     m, s = divmod(rem, 60)
     print(f"\n⏱  Training time: {h}h {m}m {s}s")
 
-    # ── Save training metrics and curves ─────────────────────────────────
     metrics_csv = MODEL_DIR / "sac_train_metrics.csv"
     with metrics_csv.open("w", newline="", encoding="utf-8") as f:
         writer = csv.DictWriter(f, fieldnames=[
@@ -510,7 +497,7 @@ def train():
         ])
         writer.writeheader()
         writer.writerows(train_metrics)
-    print(f"📝 Training metrics saved to {metrics_csv}")
+    print(f"Training metrics saved to {metrics_csv}")
 
     try:
         import matplotlib
@@ -594,9 +581,9 @@ def train():
         plt.tight_layout()
         curves_png = MODEL_DIR / "sac_train_curves.png"
         plt.savefig(curves_png, dpi=150, bbox_inches="tight")
-        print(f"📈 Training curves saved to {curves_png}")
+        print(f"Training curves saved to {curves_png}")
     except Exception as exc:
-        print(f"⚠️  Could not generate training curves: {exc}")
+        print(f"Could not generate training curves: {exc}")
 
 
 if __name__ == "__main__":

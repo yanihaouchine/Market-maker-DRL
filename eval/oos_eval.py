@@ -34,10 +34,6 @@ N_EPISODES = 50
 SEED = 42
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# Volume bars (identique à train_ppo / train_dqn)
-# ─────────────────────────────────────────────────────────────────────────────
-
 def build_volume_bars(csv_path, volume_threshold=1000):
     print(f"[data] lecture {csv_path.name}")
     df = pd.read_csv(
@@ -62,10 +58,6 @@ def build_volume_bars(csv_path, volume_threshold=1000):
     print(f"[data] {len(ohlcv):,} volume bars")
     return ohlcv
 
-
-# ─────────────────────────────────────────────────────────────────────────────
-# Environnement de trading directionnel discret
-# ─────────────────────────────────────────────────────────────────────────────
 
 class TradingEnv:
     """
@@ -154,10 +146,6 @@ class TradingEnv:
             mtm += entry - last
         return self.realized + mtm
 
-
-# ─────────────────────────────────────────────────────────────────────────────
-# Adaptateurs d'agents (interface uniforme)
-# ─────────────────────────────────────────────────────────────────────────────
 
 class Agent:
     name: str = "BASE"
@@ -296,8 +284,6 @@ class RSIAgent(Agent):
         return 1
 
 
-# ── Réseaux PyTorch (architectures issues du code des agents RL) ─────────────
-
 class _DQNNet(nn.Module):
     """Architecture identique à dqn_agent_faster._QNet"""
 
@@ -342,8 +328,6 @@ class _PPOPolicyNet(nn.Module):
     def forward(self, x):
         return self.net(x)
 
-
-# ── Dreamer (encoder + RSSM + actor uniquement, pour inférence) ──────────────
 
 class _DreamerEncoder(nn.Module):
     def __init__(self, obs_dim=121, embed_dim=256):
@@ -417,8 +401,6 @@ class _DreamerActor(nn.Module):
                 + self.unimix / self.action_dim
         return probs
 
-
-# ── Adaptateurs d'agents RL ──────────────────────────────────────────────────
 
 class DQNRLAgent(Agent):
     name = "DQN"
@@ -517,10 +499,6 @@ class DreamerRLAgent(Agent):
         return action
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# Boucle d'évaluation
-# ─────────────────────────────────────────────────────────────────────────────
-
 def run_episode(env: TradingEnv, agent: Agent, start: int) -> Dict:
     obs = env.reset(start=start)
     agent.reset()
@@ -577,10 +555,6 @@ def summarise(name: str, rows: List[Dict]) -> Dict:
         "%_hold": 100.0 * n_hold / max(tot, 1),
     }
 
-
-# ─────────────────────────────────────────────────────────────────────────────
-# Main
-# ─────────────────────────────────────────────────────────────────────────────
 
 def build_agents():
     agents = []
@@ -643,7 +617,6 @@ def main():
     print(df[cols].to_string(index=False, float_format=lambda x: f"{x:>8.3f}"))
     print(f"\n[saved] {out_csv}")
 
-    # Plot
     try:
         import matplotlib
         matplotlib.use("Agg")

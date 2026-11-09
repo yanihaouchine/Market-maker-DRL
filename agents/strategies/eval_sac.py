@@ -33,8 +33,6 @@ FIXED_SPREAD = 0.002   # 0.2% each side for the symmetric baseline
 EVAL_SEEDS = [11, 22, 33, 44, 55]
 
 
-# ── Policies ──────────────────────────────────────────────────────────────────
-
 def run_policy(policy_fn, bars, n_episodes=N_EPISODES, seed=42):
     """
     Roll out a policy on n_episodes random windows.
@@ -94,8 +92,6 @@ def run_policy(policy_fn, bars, n_episodes=N_EPISODES, seed=42):
     }
 
 
-# ── Load model ─────────────────────────────────────────────────────────────────
-
 def make_sac_policy(model_path, device):
     actor = Actor(STATE_DIM, ACTION_DIM).to(device)
     ckpt = torch.load(model_path, map_location=device, weights_only=False)
@@ -135,14 +131,12 @@ def aggregate_runs(runs):
     return agg
 
 
-# ── Main ───────────────────────────────────────────────────────────────────────
-
 def main():
     device = torch.device("mps" if torch.backends.mps.is_available() else "cpu")
     model_path = ROOT / "models" / "sac_agent.pth"
 
     if not model_path.exists():
-        print("❌ models/sac_agent.pth not found. Train first.")
+        print("models/sac_agent.pth not found. Train first.")
         sys.exit(1)
 
     print("Loading data...")
@@ -165,7 +159,6 @@ def main():
         results[name] = aggregate_runs(runs)
         print("done")
 
-    # ── Print table ────────────────────────────────────────────────────────────
     print(f"\n{'─'*72}")
     print(f"{'Policy':<22} {'Mean R':>16} {'Sharpe':>16} "
           f"{'MaxDD':>16} {'Fill%':>14} {'MaxInv':>14}")
@@ -203,9 +196,8 @@ def main():
                 r["fill_rate_mean"], r["fill_rate_std"],
                 r["max_inv_mean"], r["max_inv_std"],
             ])
-    print(f"\n🧾 Summary CSV saved to {summary_csv}")
+    print(f"\nSummary CSV saved to {summary_csv}")
 
-    # ── Plot ───────────────────────────────────────────────────────────────────
     try:
         import matplotlib
         matplotlib.use("Agg")
@@ -274,7 +266,7 @@ def main():
         plt.tight_layout()
         out = ROOT / "models" / "sac_eval.png"
         plt.savefig(out, dpi=150, bbox_inches="tight")
-        print(f"\n📊 Chart saved to {out}")
+        print(f"\nChart saved to {out}")
 
     except ImportError:
         print("\nmatplotlib not installed — skipping chart (pip install matplotlib)")

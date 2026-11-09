@@ -1,7 +1,3 @@
-"""
-Market data - stores current market state from C++
-"""
-
 import statistics
 from collections import deque
 from typing import Dict, Optional
@@ -21,7 +17,6 @@ class MarketData:
         self.prices: deque = deque(maxlen=max(window_size, 3))
 
     def update(self, state_dict: Dict):
-        """Update market state from C++"""
         self.bid_price = state_dict.get("bid_price", 0) / 100.0
         self.ask_price = state_dict.get("ask_price", 0) / 100.0
         self.mid_price = state_dict.get("mid_price", 0) / 100.0

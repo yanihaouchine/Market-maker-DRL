@@ -1,5 +1,5 @@
 """
-A2C (Advantage Actor-Critic) strategy 
+A2C (Advantage Actor-Critic) strategy
 """
 
 import os
@@ -67,12 +67,6 @@ class CriticNN(nn.Module):
         )
 
     def forward(self, state: torch.Tensor) -> torch.Tensor:
-        """
-        Args:
-            state: (batch, state_dim)
-        Returns:
-            value: (batch, 1)  — V_φ(s)
-        """
         return self.net(state)
 
 

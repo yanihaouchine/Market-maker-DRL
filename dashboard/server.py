@@ -61,7 +61,6 @@ chart_state = {
 # Inventory tracked per product across session switches
 inventory_per_product: dict = {}
 
-# Auth state
 _users: dict = {}
 sessions: dict = {}  # token → username
 
@@ -221,7 +220,7 @@ def read_market_state(metrics=None):
         if isinstance(mid_raw, (int, float)):
             mid = mid_raw / 100.0
 
-            # --- Sanity guard: reset chart if symbol changed or price jumped >15% ---
+            # Sanity guard: reset chart if symbol changed or price jumped >15%
             with state_lock:
                 last_mid = chart_state["last_mid"]
                 last_sym = chart_state["symbol"]
@@ -240,7 +239,6 @@ def read_market_state(metrics=None):
                     perf_state["ticks"] = []
                 chart_state["last_mid"] = mid
                 chart_state["symbol"] = symbol
-            # -----------------------------------------------------------------------
             if metrics is None:
                 metrics = read_runtime_metrics()
             cash = metrics.get("cash")
@@ -660,7 +658,6 @@ class DashboardHandler(BaseHTTPRequestHandler):
             self._serve_file("login.html")
             return
 
-        # Endpoint pour vérifier si le reset est en cours
         if path == "/api/snapshot":
             snap = read_snapshot()
             snap["username"] = check_session(self) or "anonymous"

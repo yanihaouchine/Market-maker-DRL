@@ -5,12 +5,7 @@ Usage:
     python -m agents.tests.test_sac_state_manual
 """
 
-import os
-import sys
-
 import numpy as np
-
-sys.path.append(os.getcwd())
 
 from agents.strategies.sac_agent import STATE_DIM, build_sac_state
 

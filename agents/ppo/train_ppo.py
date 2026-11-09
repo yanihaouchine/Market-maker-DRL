@@ -122,18 +122,7 @@ class ContinuousBinanceEnv(gym.Env):
         next_low   = self.lows[self.current_step]
         next_close = self.closes[self.current_step]
 
-        #stratégie A 
-        #if next_low <= agent_bid_price and self.inventory < self.max_inventory:
-        #    self.inventory += 1
-        #    self.cash -= agent_bid_price
-        #    self.episode_trades += 1
-#
-        #if next_high >= agent_ask_price and self.inventory > -self.max_inventory:
-        #    self.inventory -= 1
-        #    self.cash += agent_ask_price
-        #    self.episode_trades += 1
-
-        # faire un acaht ou une vente  B
+        # Une seule exécution possible par pas, côté tiré au hasard.
         filled = False
         if np.random.random() < 0.5:
             if next_low <= agent_bid_price and self.inventory < self.max_inventory:
@@ -491,5 +480,5 @@ if __name__ == "__main__":
 
     plt.tight_layout()
     plt.savefig("courbe_apprentissage_B.png", dpi=150, bbox_inches="tight")
-    print("Courbes sauvegardées sous 'courbe_apprentissage.png'")
+    print("Courbes sauvegardées sous 'courbe_apprentissage_B.png'")
     plt.show()

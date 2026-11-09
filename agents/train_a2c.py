@@ -1,5 +1,5 @@
 """
-A2C training 
+A2C training
 
 run with: python3 -m agents.train_a2c
 
@@ -165,7 +165,7 @@ def train_a2c(lr_actor=1e-3, lr_critic=1e-3, gamma=0.99, n_episodes=2000, MAX_GR
     episode_sell_history = []
 
     for ep in range(1, n_episodes + 1):
-        
+
         obs, _ = env.reset()
         done   = False
         episode_reward = 0
@@ -200,11 +200,10 @@ def train_a2c(lr_actor=1e-3, lr_critic=1e-3, gamma=0.99, n_episodes=2000, MAX_GR
 
         episode_rewards.append(episode_reward)
 
-        #  compute  returns 
         # R_t = r_t + γ * V(s_{t+1})
         with torch.no_grad():
             last_next_state_t = torch.tensor(next_states[-1], dtype=torch.float32).unsqueeze(0).to(device)
-            v_last = critic(last_next_state_t).item()   
+            v_last = critic(last_next_state_t).item()
 
         returns = []
         R = v_last
@@ -215,7 +214,7 @@ def train_a2c(lr_actor=1e-3, lr_critic=1e-3, gamma=0.99, n_episodes=2000, MAX_GR
         states_t  = torch.tensor(np.array(states),  dtype=torch.float32).to(device)
         returns_t = torch.tensor(returns,            dtype=torch.float32).unsqueeze(1).to(device)
 
-        v_s = critic(states_t)                       
+        v_s = critic(states_t)
         critic_loss = F.mse_loss(v_s, returns_t)
 
         critic_optim.zero_grad()
@@ -223,13 +222,12 @@ def train_a2c(lr_actor=1e-3, lr_critic=1e-3, gamma=0.99, n_episodes=2000, MAX_GR
         torch.nn.utils.clip_grad_norm_(critic.parameters(), MAX_GRAD_NORM)
         critic_optim.step()
 
-        #  actor update 
-        #   (advantage = return - V(s_t))
+        # advantage = return - V(s_t)
         log_probs_t = torch.stack(log_probs).to(device)
         entropies_t = torch.stack(entropies).to(device)
 
         with torch.no_grad():
-            v_s_detach = critic(states_t)            
+            v_s_detach = critic(states_t)
         advantages = (returns_t - v_s_detach).squeeze()   # A_t = R_t - V(s_t)
 
         entropy_coef = max(0.0005, 0.002 * (1 - ep / n_episodes))
@@ -242,7 +240,6 @@ def train_a2c(lr_actor=1e-3, lr_critic=1e-3, gamma=0.99, n_episodes=2000, MAX_GR
         torch.nn.utils.clip_grad_norm_(actor.parameters(), MAX_GRAD_NORM)
         actor_optim.step()
 
-        #  metrics
         n_hold = sum(a == 0 for a in actions)
         n_buy  = sum(a == 1 for a in actions)
         n_sell = sum(a == 2 for a in actions)
@@ -292,7 +289,7 @@ def train_a2c(lr_actor=1e-3, lr_critic=1e-3, gamma=0.99, n_episodes=2000, MAX_GR
             ax3.set_xlabel('Episode'); ax3.set_ylabel('Policy Loss')
             ax3.grid(True, alpha=0.3)
 
-            
+
             ax4.plot(episode_hold_history, color='steelblue', label='HOLD')
             ax4.plot(episode_buy_history, color='seagreen', label='BUY')
             ax4.plot(episode_sell_history, color='tomato', label='SELL')

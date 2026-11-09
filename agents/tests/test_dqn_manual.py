@@ -6,13 +6,8 @@ strategy follows the BaseStrategy interface and maps Q-values to BUY/SELL/HOLD
 correctly.
 """
 
-import os
-import sys
-
 import torch
 import torch.nn as nn
-
-sys.path.append(os.getcwd())
 
 from agents.strategies.dqn_agent_faster import DQNStrategy
 from agents.types import Side

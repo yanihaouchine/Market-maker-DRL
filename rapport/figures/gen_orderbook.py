@@ -4,7 +4,6 @@ import numpy as np
 
 fig, ax = plt.subplots(figsize=(10, 5.5))
 
-# Données fictives
 bid_prices = [103.20, 103.21, 103.22, 103.23, 103.24, 103.25]
 bid_qty    = [3200, 2700, 2400, 2145, 1450, 1234]
 

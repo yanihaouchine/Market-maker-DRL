@@ -4,7 +4,6 @@ import numpy as np
 
 np.random.seed(7)
 
-# --- SMA + Mean Reversion ------------------------------------------------
 n = 200
 t = np.arange(n)
 price = 100 + np.cumsum(np.random.randn(n) * 0.4) + 5*np.sin(t/12)
@@ -33,7 +32,6 @@ plt.savefig("indic_meanrev.png", dpi=160)
 plt.close()
 print("ok indic_meanrev.png")
 
-# --- RSI illustration -----------------------------------------------------
 def compute_rsi(p, period=14):
     delta = np.diff(p, prepend=p[0])
     gain = np.where(delta > 0, delta, 0)
@@ -67,7 +65,6 @@ plt.savefig("indic_rsi.png", dpi=160)
 plt.close()
 print("ok indic_rsi.png")
 
-# --- Bollinger Bands illustration ----------------------------------------
 window = 20
 ma = np.array([price[max(0,i-window):i+1].mean() for i in range(n)])
 sd = np.array([price[max(0,i-window):i+1].std()  for i in range(n)])

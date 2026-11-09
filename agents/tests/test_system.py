@@ -23,7 +23,6 @@ print("=" * 70)
 print("COMPREHENSIVE SYSTEM TEST")
 print("=" * 70)
 
-# Test data
 state = {
     "bid_price": 8750,
     "ask_price": 8760,
@@ -43,11 +42,10 @@ strategies = [
 
 for name, strategy in strategies:
     try:
-        # Feed enough data
         iterations = 20 if name == "Bollinger Bands" else (16 if name == "RSI" else 3)
         for _ in range(iterations):
             strategy.analyze(state)
-        
+
         decision = strategy.analyze(state)
         print(f"  {name}: {decision['reason'][:50]}...")
     except Exception as e:
@@ -92,7 +90,7 @@ try:
     print(f"  Agent created with symbol: {agent_bb.symbol}")
     print(f"  Strategy: {agent_bb.strategy.__class__.__name__}")
 except Exception as e:
-    print(f"  ❌ Error: {e}")
+    print(f"  Error: {e}")
     sys.exit(1)
 
 print("\n" + "=" * 70)
@@ -102,7 +100,7 @@ print("\nAvailable Strategies:")
 print("  1. Mean Reversion (default)")
 print("  2. RSI")
 print("  3. Bollinger Bands")
-print("\n🚀 Run commands:")
+print("\nRun commands:")
 print("  ./run_agent.sh")
 print("  STRATEGY=rsi ./run_agent.sh")
 print("  STRATEGY=bollinger ./run_agent.sh")

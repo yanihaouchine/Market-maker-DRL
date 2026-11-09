@@ -10,12 +10,11 @@ class RandomStrategy(BaseStrategy):
         self.mid_price = 0.0
 
     def update_data(self, market_state: Dict) -> None:
-        # On s'en fiche des données, on joue au hasard !
         pass
 
     def compute_signal(self) -> StrategySignal:
         dice = random.random()
-        
+
         if dice < 0.1: # 10% de chance d'acheter
             return StrategySignal(Side.BUY, 100, 10, "Pile !", {"dice": dice})
         elif dice > 0.9: # 10% de chance de vendre

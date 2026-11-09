@@ -15,58 +15,12 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
 
-# ---------------------------------------------------------------------------
-# Bootstrap: pre-register sub-modules so relative imports work without
-# triggering agents/__init__.py (which has an unrelated circular import).
-# ---------------------------------------------------------------------------
-import sys, types, importlib.util as _ilu, pathlib as _pl
-
-_PKG_ROOT = _pl.Path(__file__).resolve().parent          # agents/
-
-def _bootstrap(mod_name: str, file_path: _pl.Path):
-    """Register a module from its file, skip if already loaded."""
-    if mod_name in sys.modules:
-        return sys.modules[mod_name]
-    spec = _ilu.spec_from_file_location(mod_name, str(file_path))
-    mod = _ilu.module_from_spec(spec)
-    sys.modules[mod_name] = mod
-    spec.loader.exec_module(mod)
-    return mod
-
-# 1. Ensure 'agents' package exists as a namespace (no __init__ execution)
-if "agents" not in sys.modules:
-    _pkg = types.ModuleType("agents")
-    _pkg.__path__ = [str(_PKG_ROOT)]
-    _pkg.__package__ = "agents"
-    sys.modules["agents"] = _pkg
-
-# 2. Leaf modules needed by dreamer_agent.py (relative imports)
-_bootstrap("agents.types",       _PKG_ROOT / "types.py")
-_bootstrap("agents.interfaces",  _PKG_ROOT / "interfaces.py")
-_bootstrap("agents.market_data", _PKG_ROOT / "market_data.py")
-
-# 3. Ensure agents.strategies sub-package exists
-if "agents.strategies" not in sys.modules:
-    _strat = types.ModuleType("agents.strategies")
-    _strat.__path__ = [str(_PKG_ROOT / "strategies")]
-    _strat.__package__ = "agents.strategies"
-    sys.modules["agents.strategies"] = _strat
-
-# 4. Now import the actual modules we need
-_bootstrap("agents.strategies.a2c_rl",          _PKG_ROOT / "strategies" / "a2c_rl.py")
-_bootstrap("agents.strategies.dreamer_agent",   _PKG_ROOT / "strategies" / "dreamer_agent.py")
-_bootstrap("agents.train_a2c",                  _PKG_ROOT / "train_a2c.py")
-
 from agents.train_a2c import ContinuousBinanceEnv
 from agents.strategies.dreamer_agent import (
     Encoder, RSSM, Decoder, RewardPredictor, ContinuePredictor,
     Actor, Critic, symlog, symexp,
 )
 
-
-# ---------------------------------------------------------------------------
-# Discrete action wrapper
-# ---------------------------------------------------------------------------
 
 ACTION_MAP = {
     0: np.array([-0.5, -0.5], dtype=np.float32),  # HOLD
@@ -92,10 +46,6 @@ class DiscreteEnvWrapper:
         done = terminated or truncated
         return obs, reward, done
 
-
-# ---------------------------------------------------------------------------
-# Sequential replay buffer
-# ---------------------------------------------------------------------------
 
 class SequentialReplayBuffer:
     """Stores full episodes, samples sub-sequences."""
@@ -140,10 +90,6 @@ class SequentialReplayBuffer:
         )
 
 
-# ---------------------------------------------------------------------------
-# KL divergence for categoricals
-# ---------------------------------------------------------------------------
-
 def categorical_kl(logits_p: torch.Tensor, logits_q: torch.Tensor) -> torch.Tensor:
     """KL(Cat(p) || Cat(q)) summed over categories. logits: [B, 32, 32]"""
     p = F.softmax(logits_p, dim=-1)
@@ -151,10 +97,6 @@ def categorical_kl(logits_p: torch.Tensor, logits_q: torch.Tensor) -> torch.Tens
     kl = (p * (torch.log(p + 1e-8) - torch.log(q + 1e-8))).sum(dim=-1)  # [B, 32]
     return kl.sum(dim=-1)  # [B] — sum over 32 categories
 
-
-# ---------------------------------------------------------------------------
-# Training
-# ---------------------------------------------------------------------------
 
 def train_dreamer(
     n_epochs: int = 2000,
@@ -179,7 +121,6 @@ def train_dreamer(
     print(f"[Dreamer v3] Training on {device}")
     start_time = time.time()
 
-    # --- Live plot setup ---
     live_fig = None
     if live_plot:
         plt.ion()
@@ -200,13 +141,11 @@ def train_dreamer(
         plt.show(block=False)
         plt.pause(0.5)
 
-    # --- Environment ---
     csv_file = "./data/SOLUSDT-aggTrades-2026-02.csv"
     base_env = ContinuousBinanceEnv(csv_file, window_size=30, volume_threshold=1000)
     env = DiscreteEnvWrapper(base_env)
     obs_dim = base_env.observation_space.shape[0]  # 121
 
-    # --- Models ---
     encoder = Encoder(obs_dim=obs_dim).to(device)
     rssm = RSSM().to(device)
     decoder = Decoder().to(device)
@@ -217,7 +156,6 @@ def train_dreamer(
     critic_target = copy.deepcopy(critic)
     critic_target.requires_grad_(False)
 
-    # --- Optimizers ---
     wm_params = (
         list(encoder.parameters()) + list(rssm.parameters()) +
         list(decoder.parameters()) + list(reward_pred.parameters()) +
@@ -227,10 +165,8 @@ def train_dreamer(
     actor_optim = optim.AdamW(actor.parameters(), lr=actor_lr)
     critic_optim = optim.AdamW(critic.parameters(), lr=critic_lr)
 
-    # --- Replay buffer ---
     buffer = SequentialReplayBuffer(capacity=1000)
 
-    # --- Logging ---
     history = {"wm_loss": [], "actor_loss": [], "critic_loss": [],
                "reward": [], "kl": [], "inventory": []}
 
@@ -238,15 +174,12 @@ def train_dreamer(
 
     for epoch in range(1, n_epochs + 1):
         ep_t0 = time.time()
-        # =====================================================================
         # 1. Collect one episode
-        # =====================================================================
         obs = env.reset()
         done = False
         ep_obs, ep_actions, ep_rewards, ep_continues = [obs.copy()], [], [], []
         ep_reward_sum = 0.0
 
-        # RSSM state for collection
         h, z = rssm.initial_state(1, device)
         prev_action = torch.zeros(1, 3, device=device)
 
@@ -278,19 +211,14 @@ def train_dreamer(
         history["reward"].append(ep_reward_sum)
         history["inventory"].append(float(base_env.inventory))
 
-        # =====================================================================
         # 2. Train if buffer ready
-        # =====================================================================
         if not buffer.can_sample(seq_len):
             continue
 
         for _grad_step in range(grad_steps):
-            # -----------------------------------------------------------------
             # 2a. World model training
-            # -----------------------------------------------------------------
             obs_b, act_b, rew_b, cont_b = buffer.sample(batch_size, seq_len, device)
 
-            # Encode all observations
             B, T = obs_b.shape[:2]
             embed_b = encoder(obs_b.reshape(B * T, -1)).reshape(B, T, -1)
 
@@ -317,7 +245,6 @@ def train_dreamer(
 
             states_flat = states.reshape(B * T, -1)
 
-            # Losses
             obs_pred = decoder(states_flat).reshape(B, T, -1)
             l_recon = F.mse_loss(obs_pred, obs_b)
 
@@ -327,7 +254,6 @@ def train_dreamer(
             cont_pred_logit = continue_pred(states_flat).reshape(B, T)
             l_continue = F.binary_cross_entropy_with_logits(cont_pred_logit, cont_b)
 
-            # KL with free bits and balancing
             kl_per_step = []
             for t in range(T):
                 kl_fwd = categorical_kl(post_logits[:, t].detach(), prior_logits[:, t])
@@ -345,17 +271,12 @@ def train_dreamer(
             nn.utils.clip_grad_norm_(wm_params, grad_clip)
             wm_optim.step()
 
-            # -----------------------------------------------------------------
             # 2b. Actor-critic training in imagination
-            # -----------------------------------------------------------------
-            # Detach starting states from world model graph
             init_states = states_flat.detach()
 
-            # Split h, z from init_states
             init_h = init_states[:, :512]
             init_z = init_states[:, 512:]
 
-            # Freeze world model for imagination
             for p in wm_params:
                 p.requires_grad_(False)
 
@@ -382,11 +303,9 @@ def train_dreamer(
 
                 cur_h, cur_z = rssm.imagine_step(cur_h, cur_z, action_oh)
 
-            # Final state for value bootstrap
             final_state = torch.cat([cur_h, cur_z], dim=-1)
             imag_states.append(final_state)
 
-            # Re-enable world model gradients
             for p in wm_params:
                 p.requires_grad_(True)
 
@@ -398,7 +317,6 @@ def train_dreamer(
             H = imagination_horizon
             N = init_states.shape[0]
 
-            # Values from EMA target critic
             with torch.no_grad():
                 values_ema = critic_target(imag_states_t.reshape(-1, 1536)).reshape(H + 1, N)
                 values_ema = symexp(values_ema)
@@ -411,13 +329,11 @@ def train_dreamer(
                     (1.0 - lam) * values_ema[t + 1] + lam * returns[t + 1]
                 )
 
-            # Percentile normalization
             ret_flat = returns.detach().flatten()
             per5 = torch.quantile(ret_flat, 0.05)
             per95 = torch.quantile(ret_flat, 0.95)
             scale = torch.clamp(per95 - per5, min=1.0)
 
-            # Critic loss
             critic_values = critic(imag_states_t[:-1].reshape(-1, 1536).detach()).reshape(H, N)
             critic_loss = F.mse_loss(critic_values, symlog(returns).detach())
 
@@ -426,7 +342,6 @@ def train_dreamer(
             nn.utils.clip_grad_norm_(critic.parameters(), grad_clip)
             critic_optim.step()
 
-            # Actor loss
             with torch.no_grad():
                 values_for_adv = symexp(critic_target(
                     imag_states_t[:-1].reshape(-1, 1536)
@@ -451,24 +366,19 @@ def train_dreamer(
             nn.utils.clip_grad_norm_(actor.parameters(), grad_clip)
             actor_optim.step()
 
-            # EMA update
             with torch.no_grad():
                 for p_online, p_target in zip(critic.parameters(), critic_target.parameters()):
                     p_target.data.mul_(ema_decay).add_(p_online.data, alpha=1.0 - ema_decay)
 
-        # Store losses from last grad step
         history["wm_loss"].append(wm_loss.item())
         history["actor_loss"].append(actor_loss.item())
         history["critic_loss"].append(critic_loss.item())
         history["kl"].append(l_kl.item())
 
-        # =====================================================================
         # 3. Logging & checkpoints
-        # =====================================================================
         ep_elapsed = time.time() - ep_t0
         elapsed = time.time() - start_time
 
-        # Short status every epoch so the user sees progress
         if epoch % log_every == 0 or epoch == 1:
             wm_str = f"{history['wm_loss'][-1]:.4f}" if history["wm_loss"] else "n/a"
             print(
@@ -477,7 +387,6 @@ def train_dreamer(
                 flush=True,
             )
 
-        # Detailed metrics + plot every 10 epochs (or first epoch with data)
         if (epoch % 10 == 0 or epoch <= 2) and history["wm_loss"]:
             n = min(50, len(history["reward"]))
             avg_rew = np.mean(history["reward"][-n:])
@@ -490,7 +399,6 @@ def train_dreamer(
                 flush=True,
             )
 
-            # Update live plot + save PNG
             if live_plot and live_fig is not None:
                 _update_live_plot(live_fig, live_axes, history, epoch)
             _plot_metrics(history, epoch)
@@ -509,14 +417,12 @@ def train_dreamer(
 
 
 def _update_live_plot(fig, axes, history, epoch):
-    """Refresh the live matplotlib window in-place."""
     (ax1, ax2), (ax3, ax4) = axes
     window = min(50, max(1, len(history["wm_loss"])))
 
     for ax in [ax1, ax2, ax3, ax4]:
         ax.cla()
 
-    # --- Rewards ---
     ax1.plot(history["reward"], alpha=0.3, color="blue", label="Raw")
     if len(history["reward"]) >= window and window >= 2:
         ma = np.convolve(history["reward"], np.ones(window) / window, mode="valid")
@@ -528,7 +434,6 @@ def _update_live_plot(fig, axes, history, epoch):
     ax1.legend(loc="upper left")
     ax1.grid(True, alpha=0.3)
 
-    # --- World model loss ---
     ax2.plot(history["wm_loss"], alpha=0.3, color="red")
     if len(history["wm_loss"]) >= window and window >= 2:
         ma = np.convolve(history["wm_loss"], np.ones(window) / window, mode="valid")
@@ -541,7 +446,6 @@ def _update_live_plot(fig, axes, history, epoch):
         ax2.set_yscale("log")
     ax2.grid(True, alpha=0.3)
 
-    # --- Actor loss ---
     ax3.plot(history["actor_loss"], alpha=0.3, color="green")
     if len(history["actor_loss"]) >= window and window >= 2:
         ma = np.convolve(history["actor_loss"], np.ones(window) / window, mode="valid")
@@ -552,7 +456,6 @@ def _update_live_plot(fig, axes, history, epoch):
     ax3.set_ylabel("Loss")
     ax3.grid(True, alpha=0.3)
 
-    # --- KL divergence ---
     ax4.plot(history["kl"], alpha=0.3, color="purple")
     if len(history["kl"]) >= window and window >= 2:
         ma = np.convolve(history["kl"], np.ones(window) / window, mode="valid")
@@ -593,7 +496,6 @@ def _plot_metrics(history, epoch):
 
     fig, ((ax1, ax2), (ax3, ax4)) = plt.subplots(2, 2, figsize=(12, 10))
 
-    # Rewards
     ax1.plot(history["reward"], alpha=0.3, color="blue", label="Raw")
     if len(history["reward"]) >= window:
         ma = np.convolve(history["reward"], np.ones(window) / window, mode="valid")
@@ -605,7 +507,6 @@ def _plot_metrics(history, epoch):
     ax1.legend()
     ax1.grid(True, alpha=0.3)
 
-    # World model loss
     ax2.plot(history["wm_loss"], alpha=0.3, color="red")
     if len(history["wm_loss"]) >= window:
         ma = np.convolve(history["wm_loss"], np.ones(window) / window, mode="valid")
@@ -617,7 +518,6 @@ def _plot_metrics(history, epoch):
     ax2.set_yscale("log")
     ax2.grid(True, alpha=0.3)
 
-    # Actor loss
     ax3.plot(history["actor_loss"], alpha=0.3, color="green")
     if len(history["actor_loss"]) >= window:
         ma = np.convolve(history["actor_loss"], np.ones(window) / window, mode="valid")
@@ -628,7 +528,6 @@ def _plot_metrics(history, epoch):
     ax3.set_ylabel("Loss")
     ax3.grid(True, alpha=0.3)
 
-    # KL divergence
     ax4.plot(history["kl"], alpha=0.3, color="purple")
     if len(history["kl"]) >= window:
         ma = np.convolve(history["kl"], np.ones(window) / window, mode="valid")

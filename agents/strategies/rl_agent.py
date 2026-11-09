@@ -7,25 +7,24 @@ from ..interfaces import BaseStrategy, StrategySignal
 from ..types import Side
 from ..market_data import MarketData
 
-# On réimporte l'architecture depuis le fichier d'entraînement pour charger les poids
-from ..train_rl import DeepEncoder 
+from ..train_rl import DeepEncoder
 
 class RLAgentStrategy(BaseStrategy):
     def __init__(self, symbol: str = "SOLUSDT", model_path: str = "models/gcrl_actor.pth"):
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.market_data = MarketData(window_size=10)
         self.model_loaded = False
-        
+
         self.state_dim, self.goal_dim, self.action_dim = 4, 1, 3
-        
+
         # Objectif dynamique : Revenir "Flat" (inventaire à zéro)
         self.target_inventory = np.array([0.0], dtype=np.float32)
-        # Hack pour tracker l'inventaire en local
+        # Inventaire suivi localement (pas de retour du moteur)
         self.current_inventory = 0.0
 
-        # /!\ Pensez à ajuster le paramètre depth selon ce que vous avez mis dans l'entrainement (ex: 16 ou 64)
+        # depth doit correspondre à celui utilisé à l'entraînement
         self.actor = DeepEncoder(self.state_dim + self.goal_dim, self.action_dim, depth=16).to(self.device)
-        
+
         if os.path.exists(model_path):
             self.actor.load_state_dict(torch.load(model_path, map_location=self.device))
             self.actor.eval() # OBLIGATOIRE avec LayerNorm en inférence
@@ -38,11 +37,10 @@ class RLAgentStrategy(BaseStrategy):
 
     def update_data(self, market_state: Dict) -> None:
         self.market_data.update(market_state)
-        
+
         if len(self.market_data.prices) < 3:
             return
-            
-        # Calcul d'imbalance sur le best bid/ask
+
         b_qty = sum(b['quantity'] for b in self.market_data.bids[:3]) if self.market_data.bids else 0
         a_qty = sum(a['quantity'] for a in self.market_data.asks[:3]) if self.market_data.asks else 0
         imb = (b_qty - a_qty) / (b_qty + a_qty) if (b_qty + a_qty) > 0 else 0
@@ -68,14 +66,14 @@ class RLAgentStrategy(BaseStrategy):
         qty = 5.0
         mid = int(self.market_data.mid_price * 100)
         offset = int(self.market_data.spread * 100 / 2)
-        
+
         if action_idx == 1:
             self.current_inventory += qty # Mock local
             return StrategySignal(Side.BUY, mid - offset, qty, f"RL BUY (Visant: {self.target_inventory[0]})", {"RL": "BUY"})
         elif action_idx == 2:
             self.current_inventory -= qty # Mock local
             return StrategySignal(Side.SELL, mid + offset, qty, f"RL SELL (Visant: {self.target_inventory[0]})", {"RL": "SELL"})
-            
+
         return StrategySignal(None, 0, 0, "RL HOLD", {"RL": "HOLD"})
 
     def get_status(self) -> Dict[str, Any]:

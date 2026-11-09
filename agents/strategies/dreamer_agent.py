@@ -17,10 +17,6 @@ from ..types import Side
 from ..market_data import MarketData
 
 
-# ---------------------------------------------------------------------------
-# Helpers
-# ---------------------------------------------------------------------------
-
 def symlog(x: torch.Tensor) -> torch.Tensor:
     return torch.sign(x) * torch.log1p(torch.abs(x))
 
@@ -29,10 +25,6 @@ def symexp(x: torch.Tensor) -> torch.Tensor:
     x = torch.clamp(x, -20.0, 20.0)
     return torch.sign(x) * (torch.exp(torch.abs(x)) - 1.0)
 
-
-# ---------------------------------------------------------------------------
-# Neural network modules
-# ---------------------------------------------------------------------------
 
 class Encoder(nn.Module):
     def __init__(self, obs_dim: int = 121, embed_dim: int = 256):
@@ -221,10 +213,6 @@ class Critic(nn.Module):
         return self.net(state)
 
 
-# ---------------------------------------------------------------------------
-# Strategy (inference)
-# ---------------------------------------------------------------------------
-
 class DreamerStrategy(BaseStrategy):
     """
     Dreamer v3 trading strategy.
@@ -250,7 +238,6 @@ class DreamerStrategy(BaseStrategy):
         self.lows = []
         self.volumes = []
 
-        # Build modules
         self.encoder = Encoder().to(self.device)
         self.rssm = RSSM().to(self.device)
         self.actor = Actor().to(self.device)
@@ -297,7 +284,6 @@ class DreamerStrategy(BaseStrategy):
         obs = np.concatenate([norm_close, norm_high, norm_low, norm_volume, [norm_inventory]])
         return obs.astype(np.float32)
 
-    # --- BaseStrategy interface ---
 
     def update_data(self, market_state: Dict) -> None:
         self.market_data.update(market_state)
@@ -334,7 +320,6 @@ class DreamerStrategy(BaseStrategy):
             action_idx = torch.argmax(probs, dim=-1).item()
             confidence = probs[0, action_idx].item()
 
-            # Update prev_action for next step
             self.prev_action = F.one_hot(
                 torch.tensor([action_idx], device=self.device), num_classes=3
             ).float()

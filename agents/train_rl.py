@@ -7,9 +7,6 @@ import torch.optim as optim
 import numpy as np
 from collections import deque
 
-# ==========================================
-# 1. ARCHITECTURE PROFONDE (Papier Wang et al.)
-# ==========================================
 class ResidualBlock(nn.Module):
     def __init__(self, hidden_dim: int):
         super().__init__()
@@ -43,9 +40,6 @@ class DeepEncoder(nn.Module):
         x = self.res_blocks(x)
         return self.output_layer(x)
 
-# ==========================================
-# 2. SIMULATEUR OFFLINE
-# ==========================================
 class OfflineMarketEnv:
     def __init__(self):
         self.state_dim = 4  # [imbalance, spread_bps, vol, inventory]
@@ -62,8 +56,7 @@ class OfflineMarketEnv:
         return self._get_obs()
 
     def _get_obs(self):
-        # MOCK : Simulation d'un carnet d'ordres bruité en RAM.
-        # PLUS TARD : Remplacez ceci en piochant dans un historique de vos market_state.json !
+        # Carnet d'ordres simulé (bruit aléatoire), pas de données réelles.
         imb = random.uniform(-1.0, 1.0)
         spread_bps = random.uniform(1.0, 5.0) / 10.0
         deviation = ((self.price - self.sma) / self.sma * 100.0) / 2.0
@@ -72,26 +65,21 @@ class OfflineMarketEnv:
 
     def step(self, action: int):
         self.current_step += 1
-        
-        # Simulation d'évolution des prix
+
         self.price += random.gauss(0, 0.1)
         self.sma = 0.9 * self.sma + 0.1 * self.price
-        
-        # Simulation d'exécution d'ordres
+
         if action == 1:   self.inventory += self.qty_per_trade
         elif action == 2: self.inventory -= self.qty_per_trade
         self.inventory = np.clip(self.inventory, -50.0, 50.0)
-        
+
         obs = self._get_obs()
         # En RL Goal-Conditioned, l'état atteint (Achieved Goal) est l'inventaire courant
-        achieved_goal = np.array([self.inventory / 50.0], dtype=np.float32) 
+        achieved_goal = np.array([self.inventory / 50.0], dtype=np.float32)
         done = self.current_step >= self.max_steps
-        
+
         return obs, achieved_goal, done
 
-# ==========================================
-# 3. HINDSIGHT EXPERIENCE REPLAY (HER)
-# ==========================================
 class HERBuffer:
     def __init__(self, capacity=100000):
         self.buffer = deque(maxlen=capacity)
@@ -103,40 +91,36 @@ class HERBuffer:
     def sample(self, batch_size):
         states, actions, future_goals = [], [], []
         episodes = random.choices(self.buffer, k=batch_size)
-        
+
         for ep in episodes:
             if len(ep) < 2: continue
             t = random.randint(0, len(ep) - 2)
             state, action, _ = ep[t]
-            
-            # TRICHE DU HER : Le but de la trajectoire devient un état futur de la même trajectoire !
+
+            # Hindsight Experience Replay : le but de la trajectoire devient un état futur de la même trajectoire !
             t_future = random.randint(t + 1, len(ep) - 1)
             _, _, future_goal = ep[t_future]
-            
+
             states.append(state)
             actions.append(action)
             future_goals.append(future_goal)
-            
-        return (torch.FloatTensor(np.array(states)), 
-                torch.LongTensor(np.array(actions)), 
+
+        return (torch.FloatTensor(np.array(states)),
+                torch.LongTensor(np.array(actions)),
                 torch.FloatTensor(np.array(future_goals)))
 
-# ==========================================
-# 4. BOUCLE D'ENTRAÎNEMENT CONTRASTIVE RL
-# ==========================================
 def train_agent():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    print(f"🚀 Lancement de l'entraînement sur {device}")
+    print(f"Lancement de l'entraînement sur {device}")
 
     env = OfflineMarketEnv()
     buffer = HERBuffer(capacity=50000)
 
-    BATCH_SIZE = 1024 
+    BATCH_SIZE = 1024
     NUM_EPOCHS = 500
-    DEPTH = 16      
+    DEPTH = 16
     REPR_DIM = 64
 
-    # Initialisation de l'Acteur et du Critique 
     actor = DeepEncoder(env.state_dim + env.goal_dim, env.action_dim, depth=DEPTH).to(device)
     critic_sa = DeepEncoder(env.state_dim + env.action_dim, REPR_DIM, depth=DEPTH).to(device)
     critic_g = DeepEncoder(env.goal_dim, REPR_DIM, depth=DEPTH).to(device)
@@ -144,7 +128,7 @@ def train_agent():
     opt_actor = optim.Adam(actor.parameters(), lr=3e-4)
     opt_critic = optim.Adam(list(critic_sa.parameters()) + list(critic_g.parameters()), lr=3e-4)
 
-    # 1. Remplissage du buffer avec une politique exploratoire
+    # Remplissage initial du buffer avec une politique exploratoire
     print("Pré-remplissage du Replay Buffer...")
     for _ in range(100):
         obs = env.reset()
@@ -157,16 +141,15 @@ def train_agent():
             obs = next_obs
         buffer.add_episode(ep_data)
 
-    # 2. Entraînement Principal
     print("Apprentissage en cours...")
     for epoch in range(1, NUM_EPOCHS + 1):
-        
-        # --- A. Collecte d'un épisode (Exploration) ---
+
+        # A. Collecte d'un épisode (Exploration)
         obs = env.reset()
         ep_data = []
         target_goal = np.array([random.uniform(-1.0, 1.0)], dtype=np.float32)
         done = False
-        
+
         actor.eval()
         while not done:
             if random.random() < 0.15: # Epsilon-greedy
@@ -176,16 +159,16 @@ def train_agent():
                     st_t = torch.FloatTensor(obs).unsqueeze(0).to(device)
                     g_t = torch.FloatTensor(target_goal).unsqueeze(0).to(device)
                     action = torch.argmax(actor(torch.cat([st_t, g_t], dim=-1)), dim=-1).item()
-            
+
             next_obs, achieved_goal, done = env.step(action)
             ep_data.append((obs, action, achieved_goal))
             obs = next_obs
         buffer.add_episode(ep_data)
 
-        # --- B. Mise à jour des Poids ---
+        # B. Mise à jour des Poids
         actor.train()
         critic_losses, actor_losses = [], []
-        
+
         for _ in range(40): # 40 updates par epoch
             states, actions, goals = buffer.sample(BATCH_SIZE)
             if len(states) == 0: continue
@@ -193,25 +176,25 @@ def train_agent():
 
             actions_onehot = F.one_hot(actions, num_classes=env.action_dim).float()
 
-            # --- MISE A JOUR DU CRITIQUE (Loss InfoNCE Matrix) ---
+            # Critique : loss InfoNCE
             phi_sa = critic_sa(torch.cat([states, actions_onehot], dim=-1)) # [B, 64]
             psi_g = critic_g(goals) # [B, 64]
-            
+
             # Matrice des distances entre TOUS les états et TOUS les buts du batch
-            dist_matrix = torch.cdist(phi_sa, psi_g, p=2) 
-            
+            dist_matrix = torch.cdist(phi_sa, psi_g, p=2)
+
             # InfoNCE: La diagonale représente les paires positives (le reste = négatif)
-            logits = -dist_matrix 
+            logits = -dist_matrix
             labels = torch.arange(len(states)).to(device)
-            
+
             loss_c = F.cross_entropy(logits, labels)
-            
+
             opt_critic.zero_grad()
             loss_c.backward()
             opt_critic.step()
             critic_losses.append(loss_c.item())
 
-            # --- MISE A JOUR DE L'ACTEUR ---
+            # Acteur
             actor_logits = actor(torch.cat([states, goals], dim=-1)) # [B, 3]
             actor_probs = F.softmax(actor_logits, dim=-1)
 
@@ -238,7 +221,7 @@ def train_agent():
 
     os.makedirs("models", exist_ok=True)
     torch.save(actor.state_dict(), "models/gcrl_actor.pth")
-    print("✅ Modèle sauvegardé dans models/gcrl_actor.pth")
+    print("Modèle sauvegardé dans models/gcrl_actor.pth")
 
 if __name__ == "__main__":
     train_agent()
