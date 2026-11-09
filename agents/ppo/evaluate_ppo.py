@@ -122,5 +122,5 @@ def evaluate(csv_path, policy_path, num_episodes=50, volume_threshold=1000):
 
 if __name__ == "__main__":
     csv_path = os.path.join(PROJECT_ROOT, "data", "SOLUSDT-aggTrades-2026-03.csv")
-    policy_path = os.path.join(PROJECT_ROOT, "agents", "ppo", "models_checkpoints", "ppo_policy_FINAL.pth")
+    policy_path = os.path.join(PROJECT_ROOT, "models", "ppo_policy_FINAL.pth")
     evaluate(csv_path, policy_path, num_episodes=50, volume_threshold=5)

@@ -29,7 +29,7 @@ venv/
 *.pyo
 *.pyd
 
-# Trained model weights (too large for git — keep locally)
+# Model weights (the final models in models/ are force-added on purpose)
 *.pth
 *.pt
 *.h5
@@ -51,6 +51,7 @@ Thumbs.db
 *.synctex.gz
 *.fls
 *.fdb_latexmk
+*.out
 /texput.log
 /presentation.pdf
 /dreamer_train.log
@@ -59,7 +60,13 @@ Thumbs.db
 #data/
 data/*
 agents/ppo/models_checkpoints/
-agents/ppo/courbe_apprentissage.png
+
+# Training / evaluation outputs (copies used by the report live in rapport/figures/)
+/*_training_metrics.png
+agents/ppo/*.png
+eval/oos_results.png
+models/*.png
+models/*.tar.gz
 agents/exchange/config.py
 node_modules/
 test-results/

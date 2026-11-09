@@ -8,7 +8,7 @@ from ..interfaces import BaseStrategy, StrategySignal
 from ..types import Side
 
 ROOT = Path(__file__).resolve().parent.parent.parent
-DEFAULT_MODEL_PATH = str(ROOT / "agents" / "ppo" / "models_checkpoints" / "ppo_policy_FINAL.pth")
+DEFAULT_MODEL_PATH = str(ROOT / "models" / "ppo_policy_FINAL.pth")
 
 
 class _PolicyNetwork(nn.Module):
