@@ -1,0 +1,645 @@
+\documentclass[11pt,a4paper]{article}
+
+% ---------------------------------------------------------------
+% Packages
+% ---------------------------------------------------------------
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[french]{babel}
+\usepackage{lmodern}
+\usepackage[a4paper,margin=2.3cm]{geometry}
+\usepackage{graphicx}
+\graphicspath{{figures/}}
+\usepackage{xcolor}
+\usepackage{amsmath,amssymb,amsthm}
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage{tabularx}
+\usepackage{multirow}
+\usepackage{enumitem}
+\usepackage{tikz}
+\usetikzlibrary{shapes,arrows,positioning,fit,backgrounds,arrows.meta,calc}
+\usepackage{listings}
+\usepackage{hyperref}
+
+\definecolor{enseirbblue}{RGB}{0,76,153}
+\definecolor{enseirbaccent}{RGB}{200,80,40}
+\definecolor{codegray}{RGB}{245,245,245}
+\definecolor{codekw}{RGB}{0,76,153}
+\definecolor{codestr}{RGB}{40,140,40}
+\definecolor{codecom}{RGB}{120,120,120}
+
+\hypersetup{
+    colorlinks=true,
+    linkcolor=enseirbblue,
+    urlcolor=enseirbblue,
+    citecolor=enseirbblue,
+}
+
+\lstset{
+    backgroundcolor=\color{codegray},
+    basicstyle=\ttfamily\footnotesize,
+    keywordstyle=\color{codekw}\bfseries,
+    stringstyle=\color{codestr},
+    commentstyle=\color{codecom}\itshape,
+    breaklines=true,
+    showstringspaces=false,
+    frame=single,
+    rulecolor=\color{gray!40},
+    numbers=left,
+    numberstyle=\tiny\color{gray},
+    language=Python,
+    extendedchars=true,
+    literate=%
+        {é}{{\'e}}1 {è}{{\`e}}1 {ê}{{\^e}}1 {ë}{{\"e}}1
+        {à}{{\`a}}1 {â}{{\^a}}1 {ä}{{\"a}}1
+        {ô}{{\^o}}1 {ö}{{\"o}}1
+        {î}{{\^\i}}1 {ï}{{\"\i}}1
+        {ù}{{\`u}}1 {û}{{\^u}}1 {ü}{{\"u}}1
+        {ç}{{\c{c}}}1 {Ç}{{\c{C}}}1
+        {É}{{\'E}}1 {È}{{\`E}}1 {Ê}{{\^E}}1
+        {À}{{\`A}}1 {Â}{{\^A}}1
+        {œ}{{\oe}}1 {æ}{{\ae}}1,
+}
+
+\newcommand{\dreamer}{Dreamer\,v3}
+\newcommand{\rssm}{RSSM}
+\newcommand{\bluebf}[1]{\textbf{\color{enseirbblue}#1}}
+
+\title{\bfseries Le modèle \dreamer{} \\
+       \large Fiche de révision pour la soutenance \\
+       \normalsize Projet \emph{Order Book Engine} -- ENSEIRB-MATMECA}
+\author{Yani Haouchine}
+\date{\today}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+Ce document récapitule \emph{tout ce qu'il faut savoir} sur l'agent \dreamer{}
+implémenté dans le projet pour le \emph{trading algorithmique}\,: principes de
+l'apprentissage par renforcement basé sur un modèle du monde, architecture
+neuronale (Encoder, \rssm, Decoder, Reward/Continue, Actor, Critic),
+procédure d'entraînement en trois phases, astuces numériques propres à
+\dreamer{} (symlog, free bits, KL balancing, percentile normalization, EMA
+target critic, unimix exploration), résultats obtenus sur les données
+\texttt{SOLUSDT} de Binance, et liste des questions susceptibles d'être
+posées en soutenance avec leurs réponses.
+\end{abstract}
+
+\tableofcontents
+\bigskip
+
+% ===============================================================
+\section{Pourquoi \dreamer{}\,?}
+% ===============================================================
+
+\subsection{Le problème : RL classique sur des séries financières}
+Dans le projet, plusieurs agents \emph{model-free} sont déjà implémentés
+(\textbf{DQN}, \textbf{A2C}, \textbf{PPO}, \textbf{SAC}). Ils partagent un
+même défaut\,: ils apprennent uniquement par essais\,/\,erreurs sur
+l'environnement réel. Pour le trading, cela pose deux problèmes\,:
+\begin{itemize}
+    \item \bluebf{Inefficacité en données.} Une époque = un parcours complet
+          du fichier CSV. Les transitions sont consommées une seule fois si
+          le replay buffer est petit.
+    \item \bluebf{Exploration coûteuse.} Toute mauvaise action exécutée se
+          paie en pertes simulées. Sur des marchés volatils, le signal/bruit
+          est très faible.
+\end{itemize}
+
+\subsection{L'idée de \dreamer{} : apprendre à \emph{rêver}}
+\dreamer{} appartient à la famille des \bluebf{model-based RL}. Il apprend
+deux choses simultanément\,:
+\begin{enumerate}
+    \item Un \bluebf{modèle du monde} (world model) qui prédit la dynamique
+          de l'environnement\,: à partir d'un état latent et d'une action,
+          il prédit l'observation suivante, la récompense et un drapeau de
+          fin d'épisode.
+    \item Une politique acteur-critique qui s'entraîne \bluebf{exclusivement
+          dans l'imagination du modèle}, sans interagir avec l'environnement
+          réel pendant cette phase.
+\end{enumerate}
+
+L'avantage est double\,: le modèle peut être entraîné sur des séquences
+rejouées indéfiniment, et l'acteur génère des trajectoires fictives très
+peu coûteuses (un simple rollout neuronal).
+
+\subsection{Place de \dreamer{} dans l'état de l'art}
+\begin{itemize}
+    \item \textbf{DreamerV1} (Hafner et al., 2020) -- POMDP visuels.
+    \item \textbf{DreamerV2} (2021) -- premier modèle à battre Rainbow sur
+          Atari avec un seul GPU.
+    \item \textbf{DreamerV3} (2023) -- la version implémentée ici. Mêmes
+          hyperparamètres pour 150+ environnements (Atari, DMLab, Crafter,
+          Minecraft\dots), grâce aux astuces numériques que nous décrivons
+          plus bas.
+\end{itemize}
+
+% ===============================================================
+\section{Vue d'ensemble de l'architecture}
+% ===============================================================
+
+\subsection{Composants}
+L'agent est composé de \bluebf{sept réseaux de neurones} regroupés en deux
+blocs.
+
+\begin{center}
+\begin{tabularx}{\linewidth}{l X}
+\toprule
+\textbf{Bloc} & \textbf{Réseau (rôle)} \\
+\midrule
+\multirow{5}{*}{\bluebf{Modèle du monde}}
+  & \textbf{Encoder} -- compresse l'observation en un embedding \\
+  & \textbf{\rssm{}} -- modèle récurrent à variables latentes catégorielles \\
+  & \textbf{Decoder} -- reconstruit l'observation depuis l'état latent \\
+  & \textbf{Reward predictor} -- prédit la récompense \\
+  & \textbf{Continue predictor} -- prédit le drapeau de fin (continue/done) \\
+\midrule
+\multirow{2}{*}{\bluebf{Acteur-Critique}}
+  & \textbf{Actor} -- politique \(\pi(a\mid s)\), softmax sur 3 actions \\
+  & \textbf{Critic} -- fonction valeur \(V(s)\), entraînée par EMA target \\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+\subsection{Schéma d'ensemble}
+\begin{center}
+\begin{tikzpicture}[
+    box/.style={draw, rounded corners=2pt, minimum width=2.4cm, minimum height=0.8cm, align=center, font=\small},
+    enc/.style={box, fill=enseirbblue!15},
+    rssm/.style={box, fill=enseirbaccent!20},
+    head/.style={box, fill=green!15},
+    ac/.style={box, fill=yellow!25},
+    >={Stealth[length=2.2mm]},
+    every node/.style={font=\small},
+]
+    \node[enc] (obs) {\(o_t\)};
+    \node[enc, right=0.7cm of obs] (enc) {Encoder};
+    \node[rssm, right=0.7cm of enc] (rssm) {\rssm{} \\ \(h_t,\,z_t\)};
+
+    \node[head, above right=0.2cm and 1.2cm of rssm] (dec) {Decoder \(\hat o_t\)};
+    \node[head, right=1.2cm of rssm] (rew) {Reward \(\hat r_t\)};
+    \node[head, below right=0.2cm and 1.2cm of rssm] (cont) {Continue \(\hat c_t\)};
+
+    \node[ac, below=1.0cm of rssm] (actor) {Actor \(\pi(a\mid s)\)};
+    \node[ac, right=0.7cm of actor] (critic) {Critic \(V(s)\)};
+
+    \draw[->] (obs) -- (enc);
+    \draw[->] (enc) -- (rssm) node[midway, above]{\(e_t\)};
+    \draw[->] (rssm) -- (dec);
+    \draw[->] (rssm) -- (rew);
+    \draw[->] (rssm) -- (cont);
+    \draw[->] (rssm.south) -- ++(0,-0.3) -| (actor.north);
+    \draw[->] (rssm.south) -- ++(0,-0.3) -| (critic.north);
+    \draw[->] (actor) -- (critic);
+\end{tikzpicture}
+\end{center}
+
+\subsection{État latent : \(s_t = (h_t, z_t)\)}
+À chaque pas de temps, l'état est la \emph{concaténation} de\,:
+\begin{itemize}
+    \item \(h_t\) (\bluebf{déterministe}, dim 512) -- mémoire récurrente,
+          sortie de la GRU.
+    \item \(z_t\) (\bluebf{stochastique}, dim 1024 = $32\times32$) --
+          variables latentes \emph{catégorielles}, échantillonnées via
+          straight-through estimator.
+\end{itemize}
+Donc \(\dim(s_t)=1536\). Cet état alimente \emph{tous} les prédicteurs
+ainsi que l'acteur et le critique.
+
+% ===============================================================
+\section{Le \rssm{} en détail}
+% ===============================================================
+
+Le \emph{Recurrent State-Space Model} est le cœur de \dreamer. C'est lui
+qui apprend à \emph{simuler le marché}.
+
+\subsection{Mode \emph{posterior} (avec observation)}
+À l'entraînement du modèle du monde, on observe \(o_t\). On calcule\,:
+\begin{align}
+    e_t       &= \text{Encoder}(o_t) \\
+    h_t       &= \text{GRU}\bigl(\text{Lin}([z_{t-1}, a_{t-1}]),\;h_{t-1}\bigr) \\
+    p(z_t\mid h_t)        &= \text{Cat}\bigl(\text{prior\_net}(h_t)\bigr) \quad\text{[prior]} \\
+    q(z_t\mid h_t, e_t)   &= \text{Cat}\bigl(\text{post\_net}([h_t, e_t])\bigr) \quad\text{[posterior]}
+\end{align}
+On échantillonne \(z_t \sim q(\cdot)\) et on conserve les deux distributions
+pour la perte KL.
+
+\subsection{Mode \emph{imagine} (sans observation)}
+Pendant l'entraînement de l'acteur (phase 2b), on ne dispose plus de
+\(o_t\). On utilise donc le \emph{prior} seul\,:
+\begin{align}
+    h_t       &= \text{GRU}\bigl(\text{Lin}([z_{t-1}, a_{t-1}]),\;h_{t-1}\bigr) \\
+    z_t       &\sim p(z_t\mid h_t)
+\end{align}
+C'est la \emph{simulation pure}\,: tout ce qui sort vient du modèle.
+
+\subsection{Latents catégoriels et \emph{straight-through}}
+Les \(z_t\) sont \(32\) catégorielles à \(32\) classes (au lieu d'une
+gaussienne diagonale comme dans DreamerV1). Avantages\,:
+\begin{itemize}
+    \item Représentation discrète \(\Rightarrow\) plus expressive et plus
+          stable que des gaussiennes.
+    \item Le KL entre catégorielles est calculé exactement.
+\end{itemize}
+Pour rétropropager le gradient à travers l'échantillon, on utilise le
+\bluebf{straight-through estimator}\,:
+\begin{equation}
+    z = \underbrace{\text{onehot}(\arg\max\, p)}_{\text{forward}}
+        + \underbrace{p - \text{stop\_grad}(p)}_{\text{trick gradient}}
+\end{equation}
+Le forward est exactement un one-hot, mais le backward voit la dérivée des
+probabilités softmax.
+
+% ===============================================================
+\section{Procédure d'entraînement}
+% ===============================================================
+
+À chaque \bluebf{époque}, on déroule une boucle en trois temps\,:
+
+\subsection{Phase 1 -- Collecte d'un épisode réel}
+\begin{enumerate}
+    \item \texttt{env.reset()} \(\to o_0\).
+    \item Tant que non terminé\,:
+    \begin{itemize}
+        \item \(e_t = \text{Encoder}(o_t)\),
+        \item \(h_t,z_t = \rssm.\text{observe\_step}(h_{t-1},z_{t-1},a_{t-1},e_t)\),
+        \item \(a_t \sim \pi(\cdot\mid s_t)\) (catégorielle),
+        \item \(o_{t+1}, r_t, \text{done} \leftarrow \text{env.step}(a_t)\).
+    \end{itemize}
+    \item Stocker l'épisode complet dans le \emph{Sequential Replay Buffer}.
+\end{enumerate}
+
+\subsection{Phase 2a -- Entraînement du modèle du monde}
+On échantillonne \(B=16\) sous-séquences de \(T=64\) pas. On déroule le
+\rssm{} en mode \emph{posterior}, puis on minimise\,:
+\begin{equation}
+\boxed{\;
+\mathcal{L}_{\text{WM}} =
+\underbrace{\mathcal{L}_{\text{recon}}}_{\text{MSE sur } \hat o_t}
++\underbrace{\mathcal{L}_{\text{rew}}}_{\text{MSE sur } \mathrm{symlog}(r_t)}
++\underbrace{\mathcal{L}_{\text{cont}}}_{\text{BCE sur } c_t}
++\underbrace{\mathcal{L}_{\text{KL}}}_{\text{cf. § KL balancing}}
+\;}
+\end{equation}
+
+\subsection{Phase 2b -- Entraînement acteur-critique \emph{en imagination}}
+À partir de chaque état \(s_t\) du batch (donc \(N = B\cdot T\)
+trajectoires en parallèle\,!), on déroule le \rssm{} en mode \emph{imagine}
+sur \bluebf{\(H=15\) pas}\,:
+\begin{itemize}
+    \item Échantillonner \(a_h \sim \pi(\cdot\mid s_h)\).
+    \item Prédire \(\hat r_h\), \(\hat c_h\), passer en \(s_{h+1}\).
+\end{itemize}
+On obtient une trajectoire purement simulée. On calcule alors les
+\bluebf{\(\lambda\)-returns}\,:
+\begin{equation}
+G^\lambda_h = \hat r_h + \gamma\,\hat c_h\,
+\bigl[(1-\lambda)\,V_\theta(s_{h+1}) + \lambda\,G^\lambda_{h+1}\bigr],
+\qquad G^\lambda_H = \hat r_H + \gamma \hat c_H V_\theta(s_H).
+\end{equation}
+
+\paragraph{Critic.} Régression sur \(\mathrm{symlog}(G^\lambda)\)\,:
+\(\mathcal{L}_{\text{critic}} = \mathrm{MSE}(V_\theta(s_h),\;\mathrm{symlog}(G^\lambda_h))\).
+
+\paragraph{Actor.} REINFORCE avec avantage normalisé et bonus d'entropie\,:
+\begin{equation}
+\mathcal{L}_{\text{actor}} = -\mathbb{E}\bigl[
+A^{\text{norm}}_h \cdot \log\pi(a_h\mid s_h) + \beta\, \mathcal{H}[\pi(\cdot\mid s_h)]
+\bigr],\qquad \beta = 3\cdot 10^{-4}.
+\end{equation}
+
+\subsection{Hyperparamètres utilisés}
+\begin{center}
+\begin{tabular}{lcc}
+\toprule
+\textbf{Paramètre} & \textbf{Symbole} & \textbf{Valeur} \\
+\midrule
+Époques d'entraînement & --- & 2000 \\
+Taille de batch & \(B\) & 16 \\
+Longueur de séquence & \(T\) & 64 \\
+Horizon d'imagination & \(H\) & 15 \\
+Pas de gradient/époque & --- & 4 \\
+Facteur de discount & \(\gamma\) & 0.997 \\
+Coefficient \(\lambda\)-return & \(\lambda\) & 0.95 \\
+Free bits (KL) & --- & 1.0 nat \\
+KL balancing & \(\alpha\) & 0.8 \\
+Unimix exploration & --- & 0.01 \\
+EMA target critic & --- & 0.98 \\
+Lr modèle du monde & --- & \(10^{-4}\) \\
+Lr acteur / critique & --- & \(3\cdot 10^{-5}\) \\
+Coef. entropie & \(\beta\) & \(3\cdot 10^{-4}\) \\
+Clip de gradient & --- & 100.0 \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+% ===============================================================
+\section{Les six \emph{tricks} de \dreamer{}\,v3}
+% ===============================================================
+
+Ces astuces sont \emph{ce qui rend \dreamer{}\,v3 robuste} sans avoir à
+ajuster les hyperparamètres pour chaque domaine. Toutes sont dans le code
+du projet.
+
+\subsection{1. Symlog / symexp}
+Pour les récompenses et les valeurs, on apprend dans un espace compressé
+symétrique\,:
+\begin{equation}
+\mathrm{symlog}(x) = \mathrm{sign}(x)\,\log(1+|x|),\qquad
+\mathrm{symexp}(x) = \mathrm{sign}(x)(\exp(|x|)-1).
+\end{equation}
+Cela permet d'avoir des gradients stables même quand les récompenses
+varient sur plusieurs ordres de grandeur (typique en finance\,!).
+
+\subsection{2. Free bits sur le KL}
+Le terme KL est borné par une valeur plancher (1 nat) avant moyennage\,:
+\(\max(\text{KL},\,1.0)\). Empêche le posterior de coller artificiellement
+au prior et garantit toujours un peu d'information dans \(z_t\).
+
+\subsection{3. KL balancing}
+Au lieu d'une seule perte KL, on combine deux KL avec
+\(\alpha=0.8\)\,:
+\begin{equation}
+\mathcal{L}_{\text{KL}} = \alpha\,\mathrm{KL}\bigl(\text{sg}(q)\,\|\,p\bigr)
+                       + (1-\alpha)\,\mathrm{KL}\bigl(q\,\|\,\text{sg}(p)\bigr).
+\end{equation}
+\(\alpha=0.8\) signifie que \emph{le prior apprend plus vite à imiter le
+posterior que l'inverse}, ce qui produit un modèle du monde plus précis
+en imagination.
+
+\subsection{4. Percentile normalization des returns}
+Avant de calculer l'avantage, on normalise les returns par l'écart
+inter-percentiles 5--95\,:
+\begin{equation}
+A^{\text{norm}} = \frac{G^\lambda - p_5}{\max(p_{95}-p_5,\;1)} -
+                  \frac{V - p_5}{\max(p_{95}-p_5,\;1)}.
+\end{equation}
+Plus robuste qu'une normalisation par moyenne\,/\,écart-type quand la
+distribution des returns est très asymétrique (cas du trading).
+
+\subsection{5. EMA target critic}
+Le critique \emph{cible} \(V_{\theta'}\) est une moyenne exponentielle
+(\(\tau=0.98\)) des poids du critique en ligne\,:
+\(\theta' \leftarrow \tau\,\theta' + (1-\tau)\,\theta\). Stabilise la cible
+des \(\lambda\)-returns, comme dans DQN.
+
+\subsection{6. Unimix exploration}
+La distribution de l'acteur est un mélange\,:
+\begin{equation}
+\pi(a\mid s) = (1-\varepsilon)\,\mathrm{softmax}(\text{logits})
+             + \varepsilon\cdot\frac{1}{|\mathcal{A}|},\quad \varepsilon = 0.01.
+\end{equation}
+Garantit une probabilité minimale non nulle pour chaque action et empêche
+l'effondrement de la politique.
+
+% ===============================================================
+\section{Application au \emph{trading} crypto}
+% ===============================================================
+
+\subsection{Environnement}
+\begin{itemize}
+    \item \textbf{Données.} \texttt{SOLUSDT-aggTrades-2026-02.csv} (Binance,
+          aggTrades).
+    \item \textbf{Volume bars.} On ne raisonne plus en pas de temps mais en
+          \emph{barres de volume} (\texttt{volume\_threshold=1000}). Cela
+          uniformise l'information par barre.
+    \item \textbf{Observation \(o_t \in \mathbb{R}^{121}\).} Fenêtre de 30
+          dernières barres avec\,: prix de clôture, plus haut, plus bas,
+          volume (chacun normalisé), plus 1 scalaire d'inventaire.
+\end{itemize}
+
+\subsection{Actions discrètes}
+Trois actions, mappées vers l'environnement continu sous-jacent\,:
+\begin{center}
+\begin{tabular}{cll}
+\toprule
+\textbf{Index} & \textbf{Action} & \textbf{Effet} \\
+\midrule
+0 & HOLD & Aucune position prise \\
+1 & BUY  & Achat de \emph{quantity\_per\_trade} = 5 unités \\
+2 & SELL & Vente de \emph{quantity\_per\_trade} = 5 unités \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\subsection{Récompense}
+La récompense provient de l'environnement \texttt{ContinuousBinanceEnv}\,:
+\(\Delta\)PnL (Profit and Loss) entre deux barres, ajusté de pénalités
+d'inventaire pour décourager les positions extrêmes.
+
+\subsection{Inférence en production}
+La classe \texttt{DreamerStrategy} (\texttt{agents/strategies/dreamer\_agent.py})
+implémente \texttt{BaseStrategy}\,:
+\begin{itemize}
+    \item Au démarrage, charge \texttt{models/dreamer\_agent.pth}.
+    \item À chaque tick (\texttt{update\_data} + \texttt{compute\_signal})\,:
+    \begin{enumerate}
+        \item Construit l'observation à partir des 30 derniers prix.
+        \item Encode + \(\rssm{}.\text{observe\_step}\) (état persistant entre
+              les appels).
+        \item Politique \bluebf{greedy} (\(\arg\max\)) en inférence, pas
+              d'échantillonnage.
+        \item Renvoie un \texttt{StrategySignal} (BUY / SELL / HOLD) avec une
+              \emph{confidence} = probabilité associée à l'action choisie.
+    \end{enumerate}
+\end{itemize}
+
+\subsection{Résultats}
+\begin{center}
+    \includegraphics[width=0.85\linewidth]{dreamer_training_metrics.png}
+\end{center}
+\noindent
+Quatre courbes\,: rewards par épisode, perte du modèle du monde (échelle
+log), perte de l'acteur, KL divergence. Le modèle du monde converge
+typiquement en quelques centaines d'époques\,; l'acteur prend plus de
+temps puisqu'il s'entraîne sur les rollouts imaginaires.
+
+% ===============================================================
+\section{Forces et limites}
+% ===============================================================
+
+\subsection{Forces}
+\begin{itemize}
+    \item \bluebf{Efficacité en données} -- une trajectoire réelle alimente
+          des centaines de rollouts imaginaires.
+    \item \bluebf{Latents catégoriels} -- expressifs et stables.
+    \item \bluebf{Hyperparamètres robustes} -- les défauts \dreamer{}\,v3
+          fonctionnent presque tels quels sur les données crypto.
+    \item \bluebf{Modèle du monde réutilisable} -- on peut interroger le
+          modèle\,: \og{}que se passerait-il si j'achetais maintenant\,?\fg.
+\end{itemize}
+
+\subsection{Limites}
+\begin{itemize}
+    \item \bluebf{Coût d'entraînement.} Plus lourd que DQN ou PPO\,: 7
+          réseaux à entraîner, GRU récurrente, rollouts imaginaires.
+    \item \bluebf{Risque de \emph{model bias}.} Si le modèle du monde
+          apprend des dynamiques fausses, l'acteur les exploite -- d'où
+          l'importance du KL balancing et des free bits.
+    \item \bluebf{Non-stationnarité du marché.} Le modèle entraîné en
+          février 2026 peut dériver en mars\,; un ré-entraînement
+          glissant serait nécessaire en production.
+\end{itemize}
+
+% ===============================================================
+\section{Comparaison avec les autres agents du projet}
+% ===============================================================
+
+\begin{center}
+\begin{tabularx}{\linewidth}{lccccX}
+\toprule
+\textbf{Agent} & \textbf{Type} & \textbf{Modèle?} & \textbf{Politique} & \textbf{Action} & \textbf{Particularité} \\
+\midrule
+DQN     & off-policy & non & déterministe (greedy) & discrète & Replay + target \\
+A2C     & on-policy  & non & stochastique          & discrète & Avantage simple \\
+PPO     & on-policy  & non & stochastique          & discrète & Clip ratio \\
+SAC     & off-policy & non & stochastique          & continue & Max-entropy \\
+\textbf{\dreamer} & \textbf{model-based} & \textbf{oui} & stochastique & discrète & Imagination \\
+\bottomrule
+\end{tabularx}
+\end{center}
+
+\dreamer{} est \emph{le seul agent du projet à apprendre une dynamique
+explicite}. Tous les autres apprennent uniquement \(\pi\) et\,/\,ou \(Q\).
+
+% ===============================================================
+\section{Code clé : extraits commentés}
+% ===============================================================
+
+\subsection{Boucle d'entraînement (cœur)}
+\begin{lstlisting}
+# 1. Collecte d'un épisode reel
+while not done:
+    embed = encoder(obs)
+    h, z, _, _ = rssm.observe_step(h, z, prev_action, embed)
+    state = torch.cat([h, z], dim=-1)
+    action_idx = torch.multinomial(actor(state), 1).item()
+    next_obs, reward, done = env.step(action_idx)
+
+# 2a. Entrainement du modele du monde sur sequences echantillonnees
+wm_loss = l_recon + l_reward + l_continue + l_kl
+
+# 2b. Imagination + acteur-critique
+for t in range(H):
+    state_t = torch.cat([cur_h, cur_z], dim=-1)
+    a_t = sample(actor(state_t))
+    r_t = symexp(reward_pred(state_t))
+    cur_h, cur_z = rssm.imagine_step(cur_h, cur_z, a_t)
+\end{lstlisting}
+
+\subsection{Calcul des \(\lambda\)-returns (rétropropagation arrière)}
+\begin{lstlisting}
+returns[-1] = imag_rewards[-1] + gamma * imag_continues[-1] * values_ema[-1]
+for t in reversed(range(H - 1)):
+    returns[t] = imag_rewards[t] + gamma * imag_continues[t] * (
+        (1.0 - lam) * values_ema[t + 1] + lam * returns[t + 1]
+    )
+\end{lstlisting}
+
+% ===============================================================
+\section{Questions probables en soutenance (\& réponses)}
+% ===============================================================
+
+\begin{description}[leftmargin=0pt, style=nextline]
+
+\item[Pourquoi \dreamer{} et pas un PPO\,?]
+PPO est \emph{model-free}\,: chaque trajectoire vue est consommée
+directement. \dreamer{} apprend un modèle du monde réutilisable, ce qui
+améliore l'efficacité en données -- crucial quand on n'a qu'un mois de
+ticks Binance par paire.
+
+\item[Pourquoi des latents catégoriels et pas gaussiens\,?]
+Empiriquement (DreamerV2/V3), les catégorielles sont plus stables
+numériquement, n'ont pas le problème d'effondrement de variance des
+gaussiennes, et se prêtent à des KL exacts.
+
+\item[Que sont \(h_t\) et \(z_t\)\,?]
+\(h_t\) est la \emph{mémoire déterministe} (sortie de la GRU)\,;
+\(z_t\) est l'\emph{état stochastique} (variables catégorielles
+échantillonnées). L'état complet est \(s_t = [h_t,z_t]\).
+
+\item[Pourquoi le straight-through estimator\,?]
+Parce qu'on ne peut pas dériver à travers un \(\arg\max\). On utilise
+forward = one-hot, backward = gradient des softmax. C'est un biais
+contrôlé qui marche bien en pratique.
+
+\item[Que se passe-t-il si le modèle du monde est mauvais\,?]
+L'acteur apprend dans une simulation incorrecte \(\Rightarrow\) il
+exploitera des artefacts inexistants dans le vrai marché. C'est le
+\emph{model bias}. On le combat avec\,:
+(a)~le KL balancing (le prior se rapproche du posterior),
+(b)~les free bits (information minimale dans \(z\)),
+(c)~la collecte continue (le modèle revoit régulièrement la vraie
+distribution).
+
+\item[Pourquoi symlog ?]
+Les récompenses crypto peuvent varier de \(10^{-3}\) à \(10^{2}\). Sans
+compression, un seul outlier domine la perte MSE. \(\mathrm{symlog}\)
+préserve le signe et compresse les magnitudes.
+
+\item[Pourquoi un EMA target critic ?]
+La cible des \(\lambda\)-returns dépend de \(V\). Si la cible bouge à
+chaque pas, l'entraînement diverge (problème classique du DQN). On
+gèle une copie qui suit lentement le critique en ligne.
+
+\item[L'horizon \(H=15\) est-il suffisant\,?]
+C'est un compromis. Plus grand \(\Rightarrow\) plus d'erreur cumulée du
+modèle. Plus petit \(\Rightarrow\) le critique doit absorber plus de
+crédit. \(H=15\) avec \(\gamma=0.997\) couvre des effets non négligeables
+(\(0.997^{15}\approx 0.96\)).
+
+\item[Pourquoi un buffer \emph{séquentiel} et pas un classique transition replay\,?]
+Le \rssm{} est récurrent\,: il a besoin de \emph{séquences contiguës} pour
+dérouler la GRU et apprendre la dynamique. On échantillonne donc des
+sous-trajectoires, pas des transitions isolées.
+
+\item[Comment évaluez-vous l'agent en production\,?]
+Greedy (\(\arg\max\)) sur la sortie de l'acteur, avec un état \rssm{}
+maintenu entre les appels. La confiance de la décision est la probabilité
+softmax de l'action choisie.
+
+\item[Quelle est la complexité d'un pas d'entraînement\,?]
+Par pas de gradient\,: \(B\cdot T\) appels au \rssm{} en posterior
+\((16 \cdot 64 = 1024)\) puis \(B\cdot T\cdot H\) appels en imagine
+\((1024 \cdot 15 \approx 15\,360)\). Sur GPU, c'est dominé par les
+multiplications matricielles \(1536 \to 512\) du décodeur et de l'acteur.
+
+\item[Que fait \texttt{prev\_action} et pourquoi un zéro au premier pas\,?]
+La GRU prend en entrée \([z_{t-1}, a_{t-1}]\) -- l'action qui a
+\emph{conduit} à l'observation courante. À \(t=0\), il n'y a pas
+d'action précédente, donc on injecte un vecteur nul comme marqueur
+\og{}aucune action\fg. C'est cohérent entre collecte, entraînement et
+inférence.
+
+\end{description}
+
+% ===============================================================
+\section{Pour aller plus loin}
+% ===============================================================
+\begin{itemize}
+    \item \textbf{Référence principale.} Hafner, Pasukonis, Ba, Lillicrap.
+          \emph{Mastering Diverse Domains through World Models}. arXiv
+          2301.04104, 2023.
+    \item \textbf{Code dans le projet.}
+    \begin{itemize}
+        \item \texttt{agents/strategies/dreamer\_agent.py} -- réseaux et
+              stratégie d'inférence (\texttt{DreamerStrategy}).
+        \item \texttt{agents/train\_dreamer.py} -- boucle d'entraînement
+              complète.
+        \item \texttt{run\_dreamer.py} -- script de lancement.
+        \item \texttt{models/dreamer\_agent.pth} -- checkpoint sauvegardé.
+    \end{itemize}
+    \item \textbf{Pistes d'amélioration.}
+    \begin{itemize}
+        \item Étendre les actions à un espace continu (taille de position
+              variable).
+        \item Conditionner le \rssm{} sur des features de carnet d'ordres
+              (profondeur, déséquilibre bid/ask).
+        \item Ré-entraîner en \emph{rolling window} pour gérer la
+              non-stationnarité.
+    \end{itemize}
+\end{itemize}
+
+\end{document}
