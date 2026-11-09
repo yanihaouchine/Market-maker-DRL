@@ -1,210 +1,98 @@
-# Order Book Engine
+# Market maker DRL
 
-Moteur de carnet d'ordres haute performance en C++20 avec intégration données de marché temps réel.
-
-## Features
-
-- **Types d'ordres** : GoodTillCancel, Market, ImmediateOrCancel, FillOrKill, GoodForDay
-- **Algorithme de matching** : Priorité prix-temps (FIFO au sein d'un niveau de prix)
-- **Structures de données** : O(1) recherche, O(log n) accès aux niveaux
-- **Live market data** : Intégration Binance API
-
-## Performance
-
-- Insertion : ~400K ops/sec
-- Annulation : ~2M ops/sec
-- Modification : ~270K ops/sec
-- Latence : 2-4 μs
-
-## Installation
-
-### Prérequis
-
-- CMake 3.10+
-- C++20 compiler (GCC 10+, Clang 10+, MSVC 2019+)
-- Dépendances : libcurl 8.4.0, nlohmann/json 3.11.3 (téléchargées automatiquement)
-
-### Compilation
-
-**Première fois (configuration initiale)** :
-```bash
-mkdir build && cd build
-cmake ..
-cmake --build . --config Release -j$(nproc)
-```
-
-**Après modification du code** :
-```bash
-# Méthode simple (recommandé)
-./build.sh
-
-# Ou manuellement
-cd build
-cmake --build . --config Release -j$(nproc)
-```
-
-## Utilisation
-
-### Méthode Rapide (Scripts)
-
-```bash
-# Terminal 1 - Market C++ (lance uniquement)
-./run_market.sh
-
-# Terminal 2 - Agent Python
-./run_agent.sh
-```
-
-### Méthode Manuelle
-
-```bash
-# Tests et benchmarks
-./build/OrderBookTests
-
-# Affichage temps réel
-./build/LiveMarketData SOLUSDT 1 20
-# [SYMBOL] [REFRESH_SECONDS] [DEPTH_LEVELS]
-```
-
-## Trading Agent Python
-
-Un agent de trading simple qui observe le marché et exécute des ordres selon une stratégie mean-reversion.
-
-### Exécution
-
-```bash
-python3 -m agents.main
-# ou
-python3 agents/main.py
-```
-
-**Fichiers utilisés** :
-- data/market_state.json (lecture)
-- data/agent_orders.json (écriture)
-
-### Stratégie
-
-L'agent implémente une stratégie **Mean Reversion** :
-- **ACHETER** quand le prix est 2% sous la moyenne mobile (SMA)
-- **VENDRE** quand le prix est 2% au-dessus de la SMA
-- **ATTENDRE** sinon
-
-### Fonctionnalités
-
-- 📊 Observation en temps réel de l'orderbook Binance
-- 🎯 Analyse technique (SMA, déviation de prix)
-- 📝 Gestion des ordres et positions
-- 💰 Suivi P&L non réalisé
-- 📈 Affichage détaillé du marché et des performances
-
-### Exemple de sortie
-
-```
-================================================================================
- MARKET STATE                         SOLUSDT        13:45:23
-================================================================================
-Bid:    $103.25  |  Ask: $103.27  |  Mid: $103.26
-Spread:   1.94 bps  |  SMA:    $103.15
-
-Orderbook Bids:
-    $103.25  x  1234.56
-    $103.24  x   891.23
-    $103.23  x  2145.67
-
-Orderbook Asks:
-    $103.27  x  1567.89
-    $103.28  x   723.45
-    $103.29  x  1234.56
-
-================================================================================
- Decision: BUY
-   Reason: Price -2.1% below SMA (-2.15%)
-
-✅ Order #1 placed: BUY 5.0 @ $103.25
-
-================================================================================
- POSITION
-================================================================================
-  Qty:      5.00 | Entry: $ 103.25 | Current: $ 103.26 | PnL: $   0.05
-```
+Carnet d'ordres en C++20 alimenté par les données temps réel de Binance, et agents de trading Python (stratégies à règles et agents d'apprentissage par renforcement) qui passent leurs ordres sur le testnet Binance. Un dashboard web permet de piloter le tout.
 
 ## Structure
 
 ```
-orderbook-simulator-cpp/
-├── agents/               # Agents Python (structure modulaire)
-│   ├── __init__.py
-│   ├── main.py          # Point d'entrée
-│   ├── agent.py         # Orchestrateur TradingAgent
-│   ├── strategy.py      # Stratégie de trading
-│   ├── market_data.py   # Gestion données marché
-│   ├── display.py       # Fonctions d'affichage
-│   └── types.py         # Types et enums
-├── data/                 # Fichiers JSON échangés
-│   ├── agent_orders.json
-│   └── market_state.json
-├── include/              # En-têtes
-│   ├── Core/
-│   ├── OrderBook/
-│   ├── MarketData/
-│   └── LiveMarketData/
-├── src/                  # Implémentations
-│   ├── OrderBook/
-│   └── LiveMarketData/
-├── tests/                # Tests
-│   └── tests.cpp
-└── CMakeLists.txt
+├── include/, src/          # Moteur C++ : OrderBook (matching) et LiveMarketData (flux Binance)
+├── tests/                  # Tests fonctionnels (tests.cpp) et benchmarks de latence (benchmark.cpp)
+├── agents/
+│   ├── main.py             # Point d'entrée de l'agent live (variables STRATEGY, SYMBOL)
+│   ├── agent.py            # TradingAgent : lit data/market_state.json, exécute sur Binance
+│   ├── interfaces.py       # BaseStrategy / StrategySignal
+│   ├── strategies/         # mean_reversion, rsi, bollinger, sma, random, a2c, dqn, ppo, sac, dreamer
+│   ├── exchange/           # Client Binance testnet (config.py à créer depuis config.example.py)
+│   ├── ppo/, dqn/          # Entraînement et évaluation PPO / DQN
+│   ├── train_a2c.py, train_dreamer.py, train_rl.py
+│   └── tests/              # Tests pytest des stratégies
+├── models/                 # Poids des agents RL entraînés
+├── eval/oos_eval.py        # Évaluation hors-échantillon de tous les agents
+├── dashboard/              # Serveur HTTP (server.py) et interface web
+├── rapport/                # Rapport, présentation et figures (LaTeX)
+└── data/                   # Fichiers échangés à l'exécution et données historiques (non versionnés)
 ```
 
-### Matching Logic
+Le moteur C++ écrit l'état du carnet dans `data/market_state.json`. L'agent Python le lit, calcule un signal avec la stratégie choisie et envoie l'ordre sur le testnet.
 
-Orders match when:
+## Installation
 
-- Buy price ≥ Best ask price, or
-- Sell price ≤ Best bid price
+Prérequis : CMake 3.10+, un compilateur C++20 (GCC 10+, Clang 10+), les en-têtes OpenSSL et Python 3.10+. libcurl et nlohmann/json sont téléchargés par CMake.
 
-Matching proceeds in price-time priority:
+```bash
+./build.sh                          # compile build/LiveMarketData, OrderBookTests, OrderBookBenchmark
 
-1. Best price levels matched first
-2. Within a price level, earliest orders matched first (FIFO)
-3. Partial fills supported for all order types except FillOrKill
+python3 -m venv eval_venv
+eval_venv/bin/pip install torch --index-url https://download.pytorch.org/whl/cpu
+eval_venv/bin/pip install -r requirements.txt
 
-#
-## Performance Characteristics
+cp agents/exchange/config.example.py agents/exchange/config.py   # puis renseigner les clés testnet
+```
 
-| Operation      | Complexity | Measured Throughput |
-|----------------|------------|---------------------|
-| Add Order      | O(log n)   | ~400K ops/sec       |
-| Cancel Order   | O(1)       | ~2M ops/sec         |
-| Modify Order   | O(log n)   | ~270K ops/sec       |
-| Match Orders   | O(k log n) | ~350K matches/sec   |
-| Get Order Info | O(m)       | ~500K snapshots/sec |
+## Utilisation
 
-*n = number of price levels, k = number of matches, m = number of orders*
+```bash
+./run_dashboard.sh                  # dashboard sur http://127.0.0.1:8090 (identifiants par défaut : admin / admin)
 
-Benchmarks run on typical development hardware. Actual performance depends on system configuration and workload
-characteristics.
+# ou sans dashboard, dans deux terminaux :
+./run_market.sh [SYMBOL] [REFRESH_SECONDS] [LEVELS]
+./run_agent.sh [STRATEGY]           # ./run_agent.sh --help pour la liste
 
-## Implementation Notes
+./run_oos_eval.sh                   # évaluation hors-échantillon (SOLUSDT, mars 2026)
+python3 run_dreamer.py --fast       # entraînement Dreamer v3
+make pdf                            # compile le rapport, la présentation et le rapport Dreamer
+```
 
-### Design Decisions
+## Tests
 
-**Why separate bids/asks maps?** Allows different sorting orders (descending for bids, ascending for asks) and
-simplifies best bid/ask access.
+```bash
+# C++
+cmake -S . -B build-debug -DCMAKE_BUILD_TYPE=Debug
+cmake --build build-debug -j
+ctest --test-dir build-debug --output-on-failure
 
-**Why store iterators in OrderEntry?** Enables O(1) removal from the price level list when canceling orders.
+./benchmark.sh                      # benchmarks de latence (Release, build-release/)
 
-**Why shared_ptr for orders?** Allows orders to be referenced in multiple places (main map, price level list) without
-copying. Trade-off between memory overhead and simplicity.
+# Python
+eval_venv/bin/python -m pytest
 
-**Market order conversion:** Market orders are converted to limit orders at extreme prices (max/min) to reuse the
-matching logic.
+# Dashboard (API + E2E Playwright si installé : npm ci && npx playwright install)
+./scripts/test_dashboard_all.sh
+```
 
-### Order Type Behavior
+Les tests `start_and_stop_simulation` et `clear_logs` du dashboard lancent un vrai agent sur le testnet et vident les logs de `data/`.
 
-- **GoodTillCancel**: Remains active until filled or cancelled
-- **Market**: Immediately converted to aggressive limit order
-- **ImmediateOrCancel**: Partial fills accepted, unfilled portion cancelled
-- **FillOrKill**: All-or-nothing execution, rejected if can't fill completely
-- **GoodForDay**: Cancelled at configured time (default 15:59)
+## Moteur de matching
 
+- Types d'ordres : GoodTillCancel, Market, ImmediateOrCancel, FillOrKill, GoodForDay.
+- Priorité prix-temps : les meilleurs niveaux de prix passent d'abord, puis FIFO au sein d'un niveau.
+- Exécutions partielles pour tous les types sauf FillOrKill.
+- Un ordre est exécuté quand son prix d'achat est ≥ au meilleur ask, ou son prix de vente ≤ au meilleur bid.
+
+| Opération       | Complexité  |
+|-----------------|-------------|
+| Ajout d'ordre   | O(log n)    |
+| Annulation      | O(1)        |
+| Modification    | O(log n)    |
+| Matching        | O(k log n)  |
+| Snapshot        | O(m)        |
+
+*n = nombre de niveaux de prix, k = nombre d'exécutions, m = nombre d'ordres.*
+
+### Choix d'implémentation
+
+- **Maps séparées pour bids et asks** : ordres de tri différents (décroissant / croissant) et accès direct au meilleur prix.
+- **Itérateurs stockés dans chaque entrée** : suppression en O(1) dans la liste du niveau de prix lors d'une annulation.
+- **`shared_ptr` pour les ordres** : un même ordre est référencé par l'index et par son niveau de prix sans copie.
+- **Ordres Market** : convertis en ordres limite à prix extrême pour réutiliser la logique de matching.
+- **GoodForDay** : annulés à l'heure configurée (15:59 par défaut).
