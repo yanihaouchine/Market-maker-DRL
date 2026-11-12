@@ -19,6 +19,7 @@ void Orderbook::SetDayResetTime(int hour, int minute) {
     if (hour >= 0 && hour <= 23 && minute >= 0 && minute <= 59) {
         dayResetHour_ = std::chrono::hours(hour);
         dayResetMinute_ = minute;
+        nextDayCheck_ = 0;
     }
 }
 
@@ -75,6 +76,9 @@ OrderValidation Orderbook::ValidateOrder(OrderPointer order) const {
 void Orderbook::CheckAndResetDay() {
     auto now = std::chrono::system_clock::now();
     auto nowTime = std::chrono::system_clock::to_time_t(now);
+    if (nowTime < nextDayCheck_) [[likely]] {
+        return;
+    }
     auto lastResetTime = std::chrono::system_clock::to_time_t(lastDayReset_);
 
     std::tm nowTm = *std::localtime(&nowTime);
@@ -88,6 +92,20 @@ void Orderbook::CheckAndResetDay() {
     if (lastResetTime < todayResetTime && nowTime >= todayResetTime) {
         CancelGoodForDayOrders();
         lastDayReset_ = now;
+    }
+
+    // Rien à refaire avant la prochaine échéance : celle d'aujourd'hui si elle est
+    // encore à venir, sinon celle de demain (mktime normalise tm_mday + 1).
+    if (nowTime < todayResetTime) {
+        nextDayCheck_ = todayResetTime;
+    } else {
+        std::tm tomorrowResetTm = nowTm;
+        tomorrowResetTm.tm_mday += 1;
+        tomorrowResetTm.tm_hour = dayResetHour_.count();
+        tomorrowResetTm.tm_min = dayResetMinute_;
+        tomorrowResetTm.tm_sec = 0;
+        tomorrowResetTm.tm_isdst = -1;
+        nextDayCheck_ = std::mktime(&tomorrowResetTm);
     }
 }
 
@@ -182,9 +200,8 @@ Trades Orderbook::MatchFillOrKill(OrderPointer order) {
     return ExecuteMatchesForFillOrKill(order, matchingOrders);
 }
 
-Trades Orderbook::MatchOrders() {
+Trades Orderbook::MatchOrders(const OrderPointer &incoming) {
     Trades trades;
-    trades.reserve(orders_.size());
 
     while (true) {
         if (bids_.empty() || asks_.empty()) {
@@ -196,8 +213,6 @@ Trades Orderbook::MatchOrders() {
         if (bidPrice < askPrice) {
             break;
         }
-
-        std::vector<OrderId> filledOrders;
 
         while (!bids.empty() && !asks.empty()) {
             auto &bid = bids.front();
@@ -213,38 +228,31 @@ Trades Orderbook::MatchOrders() {
             bid->Fill(quantity);
             ask->Fill(quantity);
 
-            if (bid->IsFilled()) {
-                filledOrders.push_back(bid->GetOrderId());
+            // Lire les deux états avant tout pop_front : bid et ask sont des références
+            // sur les têtes de liste.
+            const bool bidFilled = bid->IsFilled();
+            const bool askFilled = ask->IsFilled();
+            if (bidFilled) {
+                orders_.erase(bid->GetOrderId());
                 bids.pop_front();
             }
-            if (ask->IsFilled()) {
-                filledOrders.push_back(ask->GetOrderId());
+            if (askFilled) {
+                orders_.erase(ask->GetOrderId());
                 asks.pop_front();
             }
         }
 
-        for (const auto &orderId: filledOrders) {
-            orders_.erase(orderId);
-        }
-
         if (bids.empty()) {
-            bids_.erase(bidPrice);
+            bids_.erase(bids_.begin());
         }
         if (asks.empty()) {
-            asks_.erase(askPrice);
+            asks_.erase(asks_.begin());
         }
     }
 
-    std::vector<OrderId> iocOrdersToCancel;
-
-    for (const auto &[orderId, entry]: orders_) {
-        if (entry.order_->GetOrderType() == OrderType::ImmediateOrCancel) {
-            iocOrdersToCancel.push_back(orderId);
-        }
-    }
-    
-    for (const auto &orderId: iocOrdersToCancel) {
-        CancelOrder(orderId);
+    // Un ordre IOC ne reste jamais au carnet : le seul candidat est l'ordre entrant.
+    if (incoming->GetOrderType() == OrderType::ImmediateOrCancel && !incoming->IsFilled()) {
+        CancelOrder(incoming->GetOrderId());
     }
 
     return trades;
@@ -303,7 +311,7 @@ void Orderbook::ProcessSnapshot(const BookSnapshotMessage &msg) {
 
             auto &orders = bids_[level.price];
             orders.push_back(order);
-            auto iterator = std::next(orders.begin(), orders.size() - 1);
+            auto iterator = std::prev(orders.end());
             orders_.insert({order->GetOrderId(), OrderEntry{order, iterator}});
         } catch (const std::invalid_argument &) {
             continue;
@@ -324,7 +332,7 @@ void Orderbook::ProcessSnapshot(const BookSnapshotMessage &msg) {
 
             auto &orders = asks_[level.price];
             orders.push_back(order);
-            auto iterator = std::next(orders.begin(), orders.size() - 1);
+            auto iterator = std::prev(orders.end());
             orders_.insert({order->GetOrderId(), OrderEntry{order, iterator}});
         } catch (const std::invalid_argument &) {
             continue;
@@ -367,25 +375,26 @@ Trades Orderbook::AddOrder(OrderPointer order) {
     if (order->GetSide() == Side::Buy) {
         auto &orders = bids_[order->GetPrice()];
         orders.push_back(order);
-        iterator = std::next(orders.begin(), orders.size() - 1);
+        iterator = std::prev(orders.end());
     } else {
         auto &orders = asks_[order->GetPrice()];
         orders.push_back(order);
-        iterator = std::next(orders.begin(), orders.size() - 1);
+        iterator = std::prev(orders.end());
     }
 
     orders_.insert({order->GetOrderId(), OrderEntry{order, iterator}});
 
-    return MatchOrders();
+    return MatchOrders(order);
 }
 
 void Orderbook::CancelOrder(OrderId orderId) {
-    if (!orders_.contains(orderId)) {
+    auto found = orders_.find(orderId);
+    if (found == orders_.end()) {
         return;
     }
 
-    const auto &[order, orderIterator] = orders_.at(orderId);
-    orders_.erase(orderId);
+    const auto [order, orderIterator] = std::move(found->second);
+    orders_.erase(found);
 
     if (order->GetSide() == Side::Sell) {
         auto price = order->GetPrice();
@@ -407,13 +416,14 @@ void Orderbook::CancelOrder(OrderId orderId) {
 Trades Orderbook::MatchOrder(OrderModify order) {
     CheckAndResetDay();
 
-    if (!orders_.contains(order.GetOrderId())) {
+    auto found = orders_.find(order.GetOrderId());
+    if (found == orders_.end()) {
         return {};
     }
 
-    const auto &[existingOrder, _] = orders_.at(order.GetOrderId());
+    const OrderType type = found->second.order_->GetOrderType();
     CancelOrder(order.GetOrderId());
-    return AddOrder(order.ToOrderPointer(existingOrder->GetOrderType()));
+    return AddOrder(order.ToOrderPointer(type));
 }
 
 std::size_t Orderbook::Size() const {

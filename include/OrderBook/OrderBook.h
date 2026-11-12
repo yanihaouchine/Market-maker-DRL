@@ -3,6 +3,7 @@
 #include <map>
 #include <unordered_map>
 #include <chrono>
+#include <ctime>
 #include <vector>
 #include "Core/OrderType.h"
 #include "Core/Types.h"
@@ -27,6 +28,7 @@ private:
     std::chrono::system_clock::time_point lastDayReset_;
     std::chrono::hours dayResetHour_{15};
     int dayResetMinute_{59};
+    std::time_t nextDayCheck_{0};
 
     MarketDataStats stats_;
     uint64_t lastSequenceNumber_ = 0;
@@ -44,7 +46,7 @@ private:
         OrderPointer order,
         const std::vector<std::pair<OrderPointer, Quantity>> &matchingOrders);
     Trades MatchFillOrKill(OrderPointer order);
-    Trades MatchOrders();
+    Trades MatchOrders(const OrderPointer &incoming);
     void ProcessNewOrder(const NewOrderMessage &msg);
     void ProcessCancel(const CancelOrderMessage &msg);
     void ProcessModify(const ModifyOrderMessage &msg);

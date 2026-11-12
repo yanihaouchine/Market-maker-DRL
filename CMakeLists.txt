@@ -84,6 +84,18 @@ add_executable(OrderBookBenchmark
         ${SOURCES}
 )
 
+# Test différentiel : moteur optimisé contre l'implémentation d'origine (tests/reference/)
+add_executable(OrderBookDifferential
+        tests/differential.cpp
+        ${SOURCES}
+)
+
+target_include_directories(OrderBookDifferential
+        PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/include
+        ${CMAKE_CURRENT_SOURCE_DIR}/tests
+)
+
 target_include_directories(OrderBookTests
         PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}/include
@@ -110,6 +122,7 @@ target_link_libraries(LiveMarketData
 # Enable testing
 enable_testing()
 add_test(NAME OrderBookTests COMMAND OrderBookTests)
+add_test(NAME OrderBookDifferential COMMAND OrderBookDifferential)
 
 # Print build information
 message(STATUS "Build type: ${CMAKE_BUILD_TYPE}")
