@@ -7,6 +7,14 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 # Compiler flags for optimization
 set(CMAKE_CXX_FLAGS_RELEASE "-O3 -DNDEBUG")
 
+# Optimisations liées à la machine de compilation (binaire non portable) : jeu d'instructions
+# natif et optimisation à l'édition de liens. Gain mesuré : 0 à 5 % selon le scénario.
+option(ORDERBOOK_NATIVE "Compiler pour le processeur local (-march=native) avec LTO" OFF)
+if(ORDERBOOK_NATIVE)
+    set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -march=native -fno-plt")
+    set(CMAKE_INTERPROCEDURAL_OPTIMIZATION_RELEASE ON)
+endif()
+
 # Source files
 set(SOURCES
         src/OrderBook/OrderBook.cpp

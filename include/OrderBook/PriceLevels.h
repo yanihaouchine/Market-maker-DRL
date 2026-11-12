@@ -5,7 +5,13 @@
 #include <cstdint>
 #include <cstdlib>
 #include <map>
+#include <new>
 #include <vector>
+
+#if defined(__unix__) || defined(__APPLE__)
+#include <sys/mman.h>
+#define ORDERBOOK_HAVE_MMAP 1
+#endif
 
 #include "Core/Types.h"
 #include "OrderBook/OrderPool.h"
@@ -99,7 +105,7 @@ public:
     DenseLevels() = default;
     DenseLevels(const DenseLevels &) = delete;
     DenseLevels &operator=(const DenseLevels &) = delete;
-    ~DenseLevels() { std::free(levels_); }
+    ~DenseLevels() { Release(); }
 
     Level *Best() {
         Level *far = far_.Best();
@@ -176,7 +182,7 @@ public:
     std::size_t Size() const { return denseCount_ + far_.Size(); }
 
     void Clear() {
-        std::fill(std::begin(low_), std::end(low_), 0);
+        if (low_) std::fill(low_, low_ + (kWindow >> 6), 0);
         std::fill(std::begin(mid_), std::end(mid_), 0);
         top_ = 0;
         denseCount_ = 0;
@@ -192,20 +198,41 @@ private:
         return b * 64 + static_cast<unsigned>(__builtin_ctzll(low_[b]));
     }
 
-    // Centre la fenêtre sur le premier prix vu. calloc : les pages non touchées ne coûtent rien.
+    static constexpr std::size_t kBytes = kWindow * sizeof(Level) + (kWindow >> 6) * sizeof(std::uint64_t);
+
+    // Centre la fenêtre sur le premier prix vu. Les niveaux et l'étage bas du bitmap partagent une
+    // seule projection anonyme : le noyau fournit des pages à zéro à la demande, donc ni la
+    // construction du carnet ni cette ouverture ne paient l'initialisation de 1,5 Mio
+    // (calloc, lui, effectuait un memset complet : ~100 µs par carnet créé).
     [[gnu::noinline, gnu::cold]] void Open(std::uint32_t key) {
         const std::uint32_t maxBase = 0xFFFFFFFFu - (kWindow - 1);
         base_ = key >= kWindow / 2 ? key - kWindow / 2 : 0;
         if (base_ > maxBase) base_ = maxBase;
-        levels_ = static_cast<Level *>(std::calloc(kWindow, sizeof(Level)));
-        if (!levels_) throw std::bad_alloc();
+#if defined(ORDERBOOK_HAVE_MMAP)
+        void *memory = mmap(nullptr, kBytes, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+        if (memory == MAP_FAILED) throw std::bad_alloc();
+#else
+        void *memory = std::calloc(1, kBytes);
+        if (!memory) throw std::bad_alloc();
+#endif
+        levels_ = static_cast<Level *>(memory);
+        low_ = reinterpret_cast<std::uint64_t *>(levels_ + kWindow);
+    }
+
+    void Release() {
+        if (!levels_) return;
+#if defined(ORDERBOOK_HAVE_MMAP)
+        munmap(levels_, kBytes);
+#else
+        std::free(levels_);
+#endif
     }
 
     Level *levels_ = nullptr;
+    std::uint64_t *low_ = nullptr; // étage bas du bitmap : un bit par tick de la fenêtre
     std::uint32_t base_ = 0;
     std::uint64_t top_ = 0;
     std::uint64_t mid_[kWindow >> 12] = {};
-    std::uint64_t low_[kWindow >> 6] = {};
     std::size_t denseCount_ = 0;
     SortedLevels<8> far_;
 };

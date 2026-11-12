@@ -40,7 +40,7 @@ struct Crc32Hash {
 template<class Hash = FibonacciHash, unsigned LoadNum = 1, unsigned LoadDen = 2>
 class IdTable {
 public:
-    IdTable() { Rebuild(10); }
+    IdTable() { Rebuild(4); }
 
     std::uint32_t Find(OrderId id) const {
         std::size_t i = Hash::Index(id, bits_);
@@ -145,7 +145,7 @@ private:
 template<class Overflow = IdTable<FibonacciHash, 1, 2>>
 class DirectIdTable {
 public:
-    DirectIdTable() { Rebuild(10); }
+    DirectIdTable() { Rebuild(8); }
 
     std::uint32_t Find(OrderId id) const {
         const Slot &slot = slots_[id & mask_];
