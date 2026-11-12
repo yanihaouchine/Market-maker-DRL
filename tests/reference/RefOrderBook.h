@@ -1,6 +1,10 @@
 // Implémentation d'origine du carnet d'ordres (commit 9e2b920), figée dans le namespace `ref`.
 // Sert d'oracle au test différentiel (tests/differential.cpp) et de point de comparaison
 // « avant » dans tests/bench_core.cpp. Ne pas optimiser ce fichier.
+//
+// Seul écart avec l'original : dans CancelOrder et MatchOrder, l'entrée de orders_ est copiée au
+// lieu d'être prise par référence. L'original lisait cette référence après orders_.erase()
+// (use-after-free signalé par AddressSanitizer) ; le comportement observable est inchangé.
 #pragma once
 
 #include <algorithm>
@@ -585,7 +589,7 @@ inline void Orderbook::CancelOrder(OrderId orderId) {
         return;
     }
 
-    const auto &[order, orderIterator] = orders_.at(orderId);
+    const auto [order, orderIterator] = orders_.at(orderId);
     orders_.erase(orderId);
 
     if (order->GetSide() == Side::Sell) {
@@ -612,7 +616,7 @@ inline Trades Orderbook::MatchOrder(OrderModify order) {
         return {};
     }
 
-    const auto &[existingOrder, _] = orders_.at(order.GetOrderId());
+    const auto [existingOrder, _] = orders_.at(order.GetOrderId());
     CancelOrder(order.GetOrderId());
     return AddOrder(order.ToOrderPointer(existingOrder->GetOrderType()));
 }

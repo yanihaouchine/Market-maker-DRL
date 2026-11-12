@@ -9,10 +9,7 @@ set(CMAKE_CXX_FLAGS_RELEASE "-O3 -DNDEBUG")
 
 # Source files
 set(SOURCES
-        src/OrderBook/Order.cpp
         src/OrderBook/OrderBook.cpp
-        src/OrderBook/OrderModify.cpp
-        src/OrderBook/Trade.cpp
 )
 
 # Test executable (functionality and performance tests)
@@ -91,6 +88,18 @@ add_executable(OrderBookDifferential
 )
 
 target_include_directories(OrderBookDifferential
+        PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/include
+        ${CMAKE_CURRENT_SOURCE_DIR}/tests
+)
+
+# Banc de mesure du cœur (flux pré-générés, comparaison des structures et de l'original)
+add_executable(OrderBookBenchCore
+        tests/bench_core.cpp
+        ${SOURCES}
+)
+
+target_include_directories(OrderBookBenchCore
         PRIVATE
         ${CMAKE_CURRENT_SOURCE_DIR}/include
         ${CMAKE_CURRENT_SOURCE_DIR}/tests

@@ -1,5 +1,6 @@
 #pragma once
 
+#include <utility>
 #include <vector>
 #include "Core/Types.h"
 
@@ -15,6 +16,11 @@ public:
     OrderbookLevelInfos(const LevelInfos &bids, const LevelInfos &asks)
         : bids_{bids},
           asks_{asks} {
+    }
+
+    OrderbookLevelInfos(LevelInfos &&bids, LevelInfos &&asks)
+        : bids_{std::move(bids)},
+          asks_{std::move(asks)} {
     }
 
     const LevelInfos &GetBids() const { return bids_; }
